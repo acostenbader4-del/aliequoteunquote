@@ -1,0 +1,1765 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quote Unquote</title>
+
+<!-- Firebase COMPAT SDK (v9 compat — must load app first, then database) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Figtree:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --bg:#12030a;--surface:#1e0714;--surface2:#2a0d1e;--surface3:#331020;
+  --border:rgba(236,72,153,.18);--border-bright:rgba(236,72,153,.5);
+  --pink:#ec4899;--pink-light:#f472b6;--pink-pale:#fbcfe8;--pink-deep:#be185d;
+  --pink-glow:rgba(236,72,153,.35);--cream:#fdf2f8;--text:#fce7f3;
+  --muted:rgba(252,231,243,.5);--correct:#4ade80;--wrong:#f87171;--gold:#fbbf24;
+  --r:16px;--r-lg:24px;--shadow:0 4px 40px rgba(0,0,0,.6);--glow:0 0 30px var(--pink-glow);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:16px;scroll-behavior:smooth}
+body{font-family:'Figtree',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;z-index:0;background:radial-gradient(ellipse 100% 60% at 15% -10%,rgba(236,72,153,.15) 0%,transparent 55%),radial-gradient(ellipse 80% 70% at 85% 110%,rgba(190,24,93,.12) 0%,transparent 55%);pointer-events:none}
+body::after{content:'';position:fixed;inset:0;z-index:0;opacity:.035;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E");pointer-events:none}
+#app{position:relative;z-index:1}
+
+/* ─── FIREBASE BANNER ─── */
+#fb-banner{position:fixed;top:0;left:0;right:0;z-index:9999;display:flex;align-items:center;justify-content:center;gap:10px;padding:8px 20px;font-size:.8rem;font-weight:600;transition:transform .4s cubic-bezier(.4,0,.2,1),opacity .4s}
+#fb-banner.connecting{background:rgba(30,7,20,.96);border-bottom:1px solid var(--border);color:var(--muted)}
+#fb-banner.connected{background:rgba(74,222,128,.12);border-bottom:1px solid rgba(74,222,128,.3);color:#4ade80}
+#fb-banner.error{background:rgba(248,113,113,.12);border-bottom:1px solid rgba(248,113,113,.3);color:#f87171}
+#fb-banner.gone{transform:translateY(-100%);opacity:0;pointer-events:none}
+.fb-dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+#fb-banner.connecting .fb-dot{animation:pulse 1.2s infinite}
+.fb-close{margin-left:14px;cursor:pointer;opacity:.6;font-size:1rem;line-height:1}
+.fb-close:hover{opacity:1}
+
+/* ─── LANDING ─── */
+#landing{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;text-align:center}
+#landing.hidden{display:none!important}
+.logo-wrap{margin-bottom:48px}
+.logo-title{font-family:'Playfair Display',serif;font-weight:900;font-size:clamp(3rem,8vw,5.5rem);letter-spacing:-2px;line-height:1;background:linear-gradient(135deg,#fce7f3 0%,#f9a8d4 30%,#ec4899 60%,#be185d 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;filter:drop-shadow(0 0 40px rgba(236,72,153,.6))}
+.logo-marks{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:8px}
+.quote-mark{font-family:'Playfair Display',serif;font-size:4rem;font-style:italic;color:var(--pink);opacity:.4;line-height:1;animation:float 3s ease-in-out infinite}
+.quote-mark:last-child{animation-delay:1.5s}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+.logo-tagline{font-size:.8rem;letter-spacing:5px;text-transform:uppercase;color:var(--muted);margin-top:12px}
+.landing-cards{display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:580px;width:100%}
+@media(max-width:500px){.landing-cards{grid-template-columns:1fr}}
+.landing-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:32px 24px;cursor:pointer;transition:all .25s cubic-bezier(.4,0,.2,1);text-align:center;position:relative;overflow:hidden}
+.landing-card::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 80% 60% at 50% 100%,rgba(236,72,153,.1) 0%,transparent 70%);opacity:0;transition:opacity .3s}
+.landing-card:hover{border-color:var(--border-bright);transform:translateY(-4px);box-shadow:var(--glow)}
+.landing-card:hover::before{opacity:1}
+.card-icon{font-size:2.5rem;margin-bottom:14px;display:block}
+.card-title{font-family:'Playfair Display',serif;font-size:1.4rem;font-weight:700;color:var(--pink-light);margin-bottom:8px}
+.card-desc{font-size:.85rem;color:var(--muted);line-height:1.5}
+
+/* ─── SHARED ─── */
+.screen{display:none;min-height:100vh}
+.screen.active{display:block}
+.top-bar{display:flex;align-items:center;justify-content:space-between;padding:16px 24px;border-bottom:1px solid var(--border);background:rgba(30,7,20,.8);backdrop-filter:blur(12px);position:sticky;top:0;z-index:100}
+.top-bar-logo{font-family:'Playfair Display',serif;font-weight:900;font-size:1.4rem;background:linear-gradient(135deg,#f9a8d4,#ec4899);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.badge{display:inline-flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:100px;padding:5px 14px;font-size:.78rem;font-weight:600;letter-spacing:.5px;color:var(--pink-light)}
+.page-content{max-width:900px;margin:0 auto;padding:32px 20px 60px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:none;border-radius:var(--r);padding:14px 28px;font-family:'Figtree',sans-serif;font-size:.95rem;font-weight:600;cursor:pointer;transition:all .2s;letter-spacing:.3px;text-decoration:none}
+.btn-primary{background:linear-gradient(135deg,var(--pink),var(--pink-deep));color:#fff;box-shadow:0 4px 20px rgba(236,72,153,.4)}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(236,72,153,.55)}
+.btn-secondary{background:var(--surface2);color:var(--pink-light);border:1px solid var(--border-bright)}
+.btn-secondary:hover{background:rgba(236,72,153,.1)}
+.btn-ghost{background:transparent;color:var(--muted)}
+.btn-ghost:hover{color:var(--text)}
+.btn:disabled{opacity:.4;cursor:not-allowed;transform:none!important}
+.btn-sm{padding:9px 18px;font-size:.85rem;border-radius:10px}
+.btn-xs{padding:6px 12px;font-size:.78rem;border-radius:8px}
+input[type="text"],input[type="number"],textarea,select{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:12px 16px;color:var(--text);font-family:'Figtree',sans-serif;font-size:.95rem;outline:none;transition:border-color .2s,box-shadow .2s}
+input:focus,textarea:focus,select:focus{border-color:var(--pink);box-shadow:0 0 0 3px rgba(236,72,153,.15)}
+select option{background:#2a0d1e}
+textarea{resize:vertical;min-height:80px}
+label{display:block;font-size:.75rem;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.form-group{margin-bottom:18px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:24px}
+.section-title{font-family:'Playfair Display',serif;font-size:1.5rem;font-weight:700;color:var(--pink-light);margin-bottom:6px}
+.section-sub{font-size:.85rem;color:var(--muted);margin-bottom:24px}
+
+/* ─── QUESTION LIST ─── */
+.questions-list{display:flex;flex-direction:column;gap:14px}
+.q-item{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:18px 20px;transition:all .2s}
+.q-item:hover{border-color:var(--border-bright)}
+.q-item-header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.q-item-num{background:linear-gradient(135deg,var(--pink),var(--pink-deep));color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;flex-shrink:0}
+.q-item-quote{font-family:'Playfair Display',serif;font-style:italic;font-size:.95rem;color:var(--text);flex:1;line-height:1.4}
+.q-item-meta{font-size:.75rem;color:var(--muted);margin-top:6px;margin-left:40px}
+.q-item-actions{display:flex;gap:8px}
+.icon-btn{background:none;border:none;cursor:pointer;color:var(--muted);font-size:1rem;padding:4px;border-radius:6px;transition:color .15s,background .15s;line-height:1}
+.icon-btn:hover{color:var(--pink-light);background:rgba(236,72,153,.1)}
+.icon-btn.del:hover{color:var(--wrong)}
+
+/* ─── MODALS ─── */
+.modal-overlay{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.75);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;pointer-events:none;transition:opacity .25s}
+.modal-overlay.open{opacity:1;pointer-events:all}
+.modal{background:var(--surface);border:1px solid var(--border-bright);border-radius:var(--r-lg);width:100%;max-width:680px;max-height:92vh;overflow-y:auto;padding:28px;transform:translateY(20px);transition:transform .25s;box-shadow:0 20px 80px rgba(0,0,0,.6),var(--glow)}
+.modal-overlay.open .modal{transform:translateY(0)}
+.modal-lg{max-width:900px}
+.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}
+.modal-title{font-family:'Playfair Display',serif;font-size:1.3rem;color:var(--pink-light)}
+
+/* ─── IMAGE WIDGET ─── */
+.img-src-tabs{display:flex;gap:4px;margin-bottom:6px}
+.img-src-tab{padding:4px 10px;border-radius:6px;font-size:.72rem;font-weight:600;cursor:pointer;border:1px solid var(--border);color:var(--muted);background:none;transition:all .15s;font-family:'Figtree',sans-serif}
+.img-src-tab.active{background:rgba(236,72,153,.15);border-color:var(--border-bright);color:var(--pink-light)}
+.img-upload-area{border:2px dashed var(--border);border-radius:var(--r);padding:14px;text-align:center;cursor:pointer;transition:all .2s;position:relative;overflow:hidden;min-height:76px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.img-upload-area:hover{border-color:var(--pink);background:rgba(236,72,153,.05)}
+.img-preview{width:52px;height:52px;border-radius:50%;object-fit:cover;border:2px solid var(--pink);margin-bottom:4px;display:none}
+.img-upload-hint{color:var(--muted);font-size:.72rem}
+.img-upload-icon{font-size:1.3rem;margin-bottom:2px;display:block}
+.img-url-wrap{display:none;gap:6px;margin-top:4px}
+.img-url-wrap.on{display:flex}
+.img-url-wrap input{padding:8px 12px;font-size:.8rem;border-radius:8px;flex:1}
+.img-url-wrap button{padding:8px 14px;border-radius:8px;font-size:.8rem;white-space:nowrap}
+
+/* ─── OPTIONS GRID ─── */
+.options-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.option-slot{position:relative}
+.option-slot input{padding-right:40px}
+.option-slot .option-label{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:var(--surface2);border:1px solid var(--border);border-radius:6px;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;color:var(--muted);cursor:pointer;transition:all .15s}
+.option-slot.correct input{border-color:var(--correct);box-shadow:0 0 0 2px rgba(74,222,128,.15)}
+.option-slot.correct .option-label{background:var(--correct);color:#000;border-color:var(--correct)}
+
+/* ─── LIBRARY MODAL ─── */
+.lib-tabs{display:flex;border-bottom:1px solid var(--border);margin-bottom:20px}
+.lib-tab{padding:10px 20px;cursor:pointer;font-size:.85rem;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .2s}
+.lib-tab.active{color:var(--pink-light);border-bottom-color:var(--pink)}
+.lib-toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+.lib-toolbar input{flex:1;min-width:160px}
+.lib-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;max-height:420px;overflow-y:auto;padding-right:4px}
+.lib-card{background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:16px;cursor:pointer;transition:all .2s;position:relative}
+.lib-card:hover{border-color:var(--border-bright);background:var(--surface3)}
+.lib-card.selected{border-color:var(--pink);background:rgba(236,72,153,.08)}
+.lib-card.selected::after{content:'✓';position:absolute;top:10px;right:12px;color:var(--pink);font-weight:700}
+.lib-card-quote{font-family:'Playfair Display',serif;font-style:italic;font-size:.88rem;line-height:1.45;color:var(--cream);margin-bottom:8px}
+.lib-card-meta{font-size:.72rem;color:var(--muted)}
+.lib-card-who{font-size:.78rem;color:var(--pink-light);font-weight:600;margin-top:4px}
+.bulk-area{width:100%;min-height:150px;font-family:monospace;font-size:.82rem;line-height:1.6}
+.bulk-hint{font-size:.78rem;color:var(--muted);margin-bottom:12px;line-height:1.7}
+.bulk-hint code{background:var(--surface2);padding:1px 5px;border-radius:4px;font-size:.74rem;color:var(--pink-light)}
+
+/* ─── LOBBY ─── */
+.lobby-layout{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+@media(max-width:640px){.lobby-layout{grid-template-columns:1fr}}
+.room-code-display{font-family:'Playfair Display',serif;font-size:4rem;font-weight:900;letter-spacing:10px;background:linear-gradient(135deg,#fce7f3,var(--pink));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;text-align:center;padding:16px 0;filter:drop-shadow(0 0 20px rgba(236,72,153,.4))}
+#qr-container{display:flex;justify-content:center;padding:16px}
+#qr-container canvas,#qr-container img{border-radius:12px;border:4px solid var(--pink-pale);max-width:160px}
+.players-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;margin-top:12px}
+.player-chip{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:10px 12px;text-align:center;font-size:.85rem;font-weight:500;animation:popIn .3s cubic-bezier(.4,0,.2,1)}
+@keyframes popIn{from{transform:scale(.8);opacity:0}to{transform:scale(1);opacity:1}}
+.player-chip.submitted{border-color:var(--correct);color:var(--correct)}
+.player-chip.submitted::after{content:' ✓'}
+
+/* ─── HOST GAME ─── */
+.host-game-layout{display:grid;grid-template-columns:1fr 340px;gap:24px;align-items:start}
+@media(max-width:760px){.host-game-layout{grid-template-columns:1fr}}
+.quote-display{position:relative;padding:32px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden}
+.quote-display::before{content:'\201C';font-family:'Playfair Display',serif;font-size:10rem;color:var(--pink);opacity:.08;position:absolute;top:-20px;left:10px;line-height:1;pointer-events:none}
+.quote-text{font-family:'Playfair Display',serif;font-size:clamp(1.3rem,3vw,1.8rem);font-style:italic;line-height:1.5;color:var(--cream);position:relative;z-index:1;margin-bottom:16px}
+.quote-source{font-size:.8rem;letter-spacing:1px;text-transform:uppercase;color:var(--pink);font-weight:600;position:relative;z-index:1}
+.host-options{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:20px}
+.host-option{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;display:flex;align-items:center;gap:12px}
+.host-option.correct-answer{border-color:var(--correct);background:rgba(74,222,128,.08)}
+.option-char-img{width:44px;height:44px;border-radius:50%;object-fit:cover;border:2px solid var(--border-bright);flex-shrink:0;background:var(--surface2)}
+.option-char-name{font-size:.9rem;font-weight:600}
+.option-letter-badge{width:26px;height:26px;border-radius:50%;background:var(--surface);border:1px solid var(--border-bright);display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;color:var(--pink-light);flex-shrink:0}
+.correct-badge{display:inline-flex;align-items:center;background:rgba(74,222,128,.15);border:1px solid var(--correct);color:var(--correct);padding:3px 10px;border-radius:100px;font-size:.75rem;font-weight:600}
+.sidebar-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:20px;margin-bottom:16px}
+.sidebar-title{font-size:.72rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:14px}
+.progress-bar-wrap{background:var(--surface2);border-radius:100px;height:8px;overflow:hidden}
+.progress-bar{height:100%;background:linear-gradient(90deg,var(--pink),var(--pink-deep));border-radius:100px;transition:width .4s}
+.lb-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;background:var(--surface2);margin-bottom:6px}
+.lb-rank{font-family:'Playfair Display',serif;font-size:1rem;font-weight:700;width:24px;text-align:center;color:var(--muted)}
+.lb-rank.gold{color:var(--gold)}.lb-rank.silver{color:#cbd5e1}.lb-rank.bronze{color:#d97706}
+.lb-name{flex:1;font-size:.9rem;font-weight:500}.lb-score{font-weight:700;color:var(--pink-light);font-size:.9rem}
+.status-dot{width:8px;height:8px;border-radius:50%;background:var(--muted);animation:pulse 1.5s infinite}
+.status-dot.all-in{background:var(--correct);animation:none}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.round-pill{display:inline-flex;align-items:center;background:rgba(236,72,153,.12);border:1px solid var(--border-bright);border-radius:100px;padding:4px 14px;font-size:.8rem;font-weight:600;color:var(--pink-light)}
+
+/* ─── PLAYER ─── */
+.join-wrap{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;text-align:center}
+.join-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:36px 32px;width:100%;max-width:420px;box-shadow:var(--shadow)}
+.join-logo{font-family:'Playfair Display',serif;font-weight:900;font-size:2.2rem;background:linear-gradient(135deg,#f9a8d4,#ec4899);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:4px}
+.join-sub{color:var(--muted);font-size:.85rem;margin-bottom:28px}
+.code-input{text-align:center;font-family:'Playfair Display',serif;font-size:2.2rem;font-weight:700;letter-spacing:8px;text-transform:uppercase}
+.player-quote-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:28px 24px;margin-bottom:24px;position:relative;overflow:hidden}
+.player-quote-card::before{content:'\201C';font-family:'Playfair Display',serif;font-size:8rem;color:var(--pink);opacity:.07;position:absolute;top:-10px;left:6px;line-height:1;pointer-events:none}
+.player-quote-text{font-family:'Playfair Display',serif;font-size:clamp(1.1rem,4vw,1.5rem);font-style:italic;line-height:1.55;color:var(--cream);position:relative;z-index:1;margin-bottom:10px}
+.player-quote-source{font-size:.75rem;letter-spacing:1px;text-transform:uppercase;color:var(--pink);font-weight:600;position:relative;z-index:1}
+.options-list{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:480px){.options-list{grid-template-columns:1fr}}
+.answer-btn{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:all .2s cubic-bezier(.4,0,.2,1);text-align:left;width:100%;color:var(--text);font-family:'Figtree',sans-serif;font-size:.9rem;font-weight:500;position:relative;overflow:hidden}
+.answer-btn::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,var(--pink),var(--pink-deep));opacity:0;transition:opacity .2s}
+.answer-btn:hover{border-color:var(--border-bright);transform:translateY(-2px);box-shadow:var(--glow)}
+.answer-btn:hover::before{opacity:.08}
+.answer-btn.selected{border-color:var(--pink);background:rgba(236,72,153,.12);box-shadow:var(--glow)}
+.answer-btn.revealed-correct{border-color:var(--correct);background:rgba(74,222,128,.1)}
+.answer-btn.revealed-wrong{border-color:var(--wrong);background:rgba(248,113,113,.08);opacity:.7}
+.answer-btn.revealed-selected-correct{border-color:var(--correct);background:rgba(74,222,128,.15);box-shadow:0 0 0 2px rgba(74,222,128,.3)}
+.answer-btn.revealed-selected-wrong{border-color:var(--wrong);background:rgba(248,113,113,.12);box-shadow:0 0 0 2px rgba(248,113,113,.3)}
+.answer-btn img,.answer-btn-letter,.answer-btn-text{position:relative;z-index:1}
+.answer-btn img{width:42px;height:42px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.1);flex-shrink:0;background:var(--surface2)}
+.answer-btn-letter{width:26px;height:26px;border-radius:50%;background:var(--surface2);border:1px solid var(--border-bright);display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:700;color:var(--pink-light);flex-shrink:0}
+.waiting-animation{display:flex;align-items:center;justify-content:center;gap:8px;padding:40px}
+.dot-wave{width:12px;height:12px;border-radius:50%;background:var(--pink);animation:wave 1.2s ease-in-out infinite}
+.dot-wave:nth-child(2){animation-delay:.15s}.dot-wave:nth-child(3){animation-delay:.3s}
+@keyframes wave{0%,80%,100%{transform:scale(.7);opacity:.5}40%{transform:scale(1);opacity:1}}
+.points-flash{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(0);background:linear-gradient(135deg,var(--pink),var(--pink-deep));color:#fff;font-family:'Playfair Display',serif;font-size:3rem;font-weight:900;padding:24px 40px;border-radius:var(--r-lg);z-index:500;animation:flashPop 1.8s forwards;text-align:center;box-shadow:0 0 60px rgba(236,72,153,.6);pointer-events:none}
+@keyframes flashPop{0%{transform:translate(-50%,-50%) scale(0);opacity:0}20%{transform:translate(-50%,-50%) scale(1.1);opacity:1}30%{transform:translate(-50%,-50%) scale(1)}70%{transform:translate(-50%,-50%) scale(1);opacity:1}100%{transform:translate(-50%,-50%) scale(.8);opacity:0}}
+.points-flash .pts{font-size:1rem;opacity:.8;font-family:'Figtree',sans-serif}
+.round-result{text-align:center;padding:30px 20px}
+.result-icon{font-size:4rem;margin-bottom:12px;display:block;animation:bounce .6s}
+@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-16px)}}
+.result-title{font-family:'Playfair Display',serif;font-size:1.8rem;margin-bottom:6px}
+.result-points{color:var(--pink-light);font-size:1.1rem;margin-bottom:20px}
+
+/* ─── PODIUM ─── */
+.podium{display:flex;align-items:flex-end;justify-content:center;gap:12px;margin:30px 0}
+.podium-spot{display:flex;flex-direction:column;align-items:center;gap:8px}
+.podium-name{font-size:.85rem;font-weight:600;text-align:center;max-width:80px;word-break:break-word}
+.podium-score{font-size:.75rem;color:var(--muted)}
+.podium-bar{width:80px;border-radius:8px 8px 0 0;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:10px;font-family:'Playfair Display',serif;font-size:1.3rem;font-weight:700;color:#fff}
+.podium-bar.p1{height:120px;background:linear-gradient(180deg,var(--gold),#f59e0b)}
+.podium-bar.p2{height:90px;background:linear-gradient(180deg,#cbd5e1,#94a3b8)}
+.podium-bar.p3{height:70px;background:linear-gradient(180deg,#d97706,#92400e)}
+
+/* ─── TOAST ─── */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--surface2);border:1px solid var(--border-bright);color:var(--text);padding:12px 24px;border-radius:100px;font-size:.88rem;font-weight:500;box-shadow:var(--shadow);z-index:9998;opacity:0;transition:all .3s;white-space:nowrap}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+hr{border:none;border-top:1px solid var(--border);margin:20px 0}
+.flex{display:flex}.flex-between{display:flex;justify-content:space-between;align-items:center}
+.mt-8{margin-top:8px}.mt-12{margin-top:12px}.mt-16{margin-top:16px}.mt-24{margin-top:24px}
+.text-center{text-align:center}.text-muted{color:var(--muted)}.fw-700{font-weight:700}.fs-sm{font-size:.85rem}.hidden{display:none!important}
+.spinner{width:20px;height:20px;border:2px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:var(--surface)}::-webkit-scrollbar-thumb{background:var(--border-bright);border-radius:3px}
+@media(max-width:600px){.options-grid{grid-template-columns:1fr}.host-options{grid-template-columns:1fr}.modal{padding:18px}.page-content{padding:20px 14px 40px}}
+</style>
+</head>
+<body>
+
+<!-- FIREBASE BANNER -->
+<div id="fb-banner" class="connecting">
+  <div class="fb-dot"></div>
+  <span id="fb-banner-txt">Connecting to Firebase…</span>
+  <span class="fb-close" onclick="dismissBanner()">✕</span>
+</div>
+
+<div id="app">
+
+<!-- ═══════ LANDING ═══════ -->
+<div id="landing">
+  <div class="logo-wrap">
+    <div class="logo-marks">
+      <span class="quote-mark">&ldquo;</span>
+      <h1 class="logo-title">Quote Unquote</h1>
+      <span class="quote-mark">&rdquo;</span>
+    </div>
+    <p class="logo-tagline">The ultimate quote guessing game</p>
+  </div>
+  <div class="landing-cards">
+    <div class="landing-card" onclick="showHostSetup()">
+      <span class="card-icon">🎬</span>
+      <div class="card-title">I'm the Host</div>
+      <div class="card-desc">Create a lobby, add quotes, and control the game</div>
+    </div>
+    <div class="landing-card" onclick="showPlayerJoin()">
+      <span class="card-icon">🎮</span>
+      <div class="card-title">I'm a Player</div>
+      <div class="card-desc">Join a room with a code and start guessing</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ HOST SETUP ═══════ -->
+<div id="host-setup" class="screen">
+  <div class="top-bar">
+    <span class="top-bar-logo">Quote Unquote</span>
+    <div style="display:flex;gap:10px;align-items:center">
+      <button class="btn btn-secondary btn-sm" onclick="openLibModal()">📚 Quote Library</button>
+      <button class="btn btn-ghost btn-sm" onclick="showLanding()">← Back</button>
+    </div>
+  </div>
+  <div class="page-content">
+    <div class="section-title">Build Your Game</div>
+    <div class="section-sub">Pick quotes from the <strong style="color:var(--pink-light)">Quote Library</strong> or add your own manually.</div>
+    <div id="questions-list" class="questions-list"></div>
+    <button class="btn btn-secondary mt-16" style="width:100%" onclick="openQuestionModal(-1)">+ Add Quote Manually</button>
+    <hr>
+    <div class="flex-between">
+      <div class="text-muted fs-sm" id="q-count-label">0 questions added</div>
+      <button class="btn btn-primary" onclick="hostCreateLobby()" id="create-lobby-btn" disabled>Create Lobby</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ HOST LOBBY ═══════ -->
+<div id="host-lobby" class="screen">
+  <div class="top-bar">
+    <span class="top-bar-logo">Quote Unquote</span>
+    <div class="badge" id="lobby-room-badge">Room: ——</div>
+  </div>
+  <div class="page-content">
+    <div class="section-title">Waiting for Players</div>
+    <div class="section-sub">Share the room code or scan the QR to join.</div>
+    <div class="lobby-layout">
+      <div class="card">
+        <div class="sidebar-title">Room Code</div>
+        <div class="room-code-display" id="lobby-code-display">——</div>
+        <div id="qr-container"></div>
+        <p class="text-muted fs-sm text-center mt-8">Scan QR to auto-fill the code</p>
+      </div>
+      <div class="card">
+        <div class="flex-between" style="margin-bottom:14px">
+          <div class="sidebar-title" style="margin:0">Players Joined</div>
+          <div class="badge" id="player-count-badge">0 players</div>
+        </div>
+        <div class="players-grid" id="lobby-players-grid">
+          <div class="text-muted fs-sm" id="no-players-msg">No players yet…</div>
+        </div>
+      </div>
+    </div>
+    <div class="mt-24 text-center">
+      <button class="btn btn-primary" onclick="hostStartGame()" id="start-game-btn" disabled>Start Game</button>
+      <p class="text-muted fs-sm mt-8">Need at least 1 player to start</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ HOST GAME ═══════ -->
+<div id="host-game" class="screen">
+  <div class="top-bar">
+    <span class="top-bar-logo">Quote Unquote</span>
+    <div class="flex" style="gap:10px;align-items:center">
+      <span class="round-pill" id="host-round-pill">Round 1</span>
+      <div class="badge" id="host-room-badge">Room: ——</div>
+    </div>
+  </div>
+  <div class="page-content">
+    <div class="host-game-layout">
+      <div>
+        <div class="quote-display">
+          <div class="quote-text" id="host-quote-text">…</div>
+          <div class="quote-source" id="host-quote-source"></div>
+        </div>
+        <div class="host-options" id="host-options-grid"></div>
+        <div class="mt-16 flex-between">
+          <div class="flex" style="gap:10px;align-items:center">
+            <div class="status-dot" id="host-status-dot"></div>
+            <span class="fs-sm text-muted" id="host-status-text">Waiting for answers…</span>
+          </div>
+          <button class="btn btn-primary" id="host-next-btn" onclick="hostNextRound()" disabled>Next Round →</button>
+        </div>
+      </div>
+      <div>
+        <div class="sidebar-card">
+          <div class="sidebar-title">Submissions</div>
+          <div class="flex-between mt-8">
+            <span class="fs-sm text-muted" id="host-submit-count">0 / 0</span>
+            <span class="fs-sm" id="host-submit-all" style="display:none;color:var(--correct)">All in! ✓</span>
+          </div>
+          <div class="progress-bar-wrap mt-8"><div class="progress-bar" id="host-progress-bar" style="width:0%"></div></div>
+          <div id="host-submit-list" class="mt-12" style="display:flex;flex-direction:column;gap:6px"></div>
+        </div>
+        <div class="sidebar-card">
+          <div class="sidebar-title">Leaderboard</div>
+          <div id="host-leaderboard"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ HOST GAMEOVER ═══════ -->
+<div id="host-gameover" class="screen">
+  <div class="top-bar"><span class="top-bar-logo">Quote Unquote</span></div>
+  <div class="page-content text-center">
+    <div class="section-title mt-24">Game Over!</div>
+    <div class="section-sub">Final results</div>
+    <div class="podium" id="host-podium"></div>
+    <div id="host-final-lb" class="card" style="max-width:400px;margin:0 auto 24px"></div>
+    <button class="btn btn-primary" onclick="hostNewGame()">Play Again</button>
+  </div>
+</div>
+
+<!-- ═══════ PLAYER JOIN ═══════ -->
+<div id="player-join" class="screen">
+  <div class="join-wrap">
+    <div class="join-card">
+      <div class="join-logo">Quote Unquote</div>
+      <div class="join-sub">Enter room code to join</div>
+      <div class="form-group">
+        <label>Room Code</label>
+        <input type="text" id="player-room-input" class="code-input" placeholder="XXXX" maxlength="4" oninput="this.value=this.value.toUpperCase()">
+      </div>
+      <div class="form-group">
+        <label>Your Name</label>
+        <input type="text" id="player-name-input" placeholder="Enter your name" maxlength="20">
+      </div>
+      <button class="btn btn-primary" style="width:100%;margin-top:8px" onclick="playerJoin()" id="join-btn">Join Game</button>
+      <button class="btn btn-ghost btn-sm" style="width:100%;margin-top:12px" onclick="showLanding()">← Back</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ PLAYER LOBBY ═══════ -->
+<div id="player-lobby" class="screen">
+  <div class="top-bar">
+    <span class="top-bar-logo">Quote Unquote</span>
+    <div class="badge" id="player-room-badge">Room: ——</div>
+  </div>
+  <div class="page-content text-center">
+    <div style="padding:60px 20px">
+      <div style="font-size:3rem;margin-bottom:20px">🎭</div>
+      <div class="section-title">You're in!</div>
+      <div class="section-sub" id="player-lobby-name-msg">Waiting for the host…</div>
+      <div class="waiting-animation"><div class="dot-wave"></div><div class="dot-wave"></div><div class="dot-wave"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ PLAYER GAME ═══════ -->
+<div id="player-game" class="screen">
+  <div class="top-bar">
+    <span class="top-bar-logo">Quote Unquote</span>
+    <div class="flex" style="gap:10px;align-items:center">
+      <span class="round-pill" id="player-round-pill">Round 1</span>
+      <div class="badge" id="player-score-badge">0 pts</div>
+    </div>
+  </div>
+  <div class="page-content">
+    <div id="player-answering">
+      <div class="player-quote-card">
+        <div class="player-quote-text" id="player-quote-text">…</div>
+        <div class="player-quote-source" id="player-quote-source"></div>
+      </div>
+      <div class="options-list" id="player-options-list"></div>
+      <div class="mt-16 text-center">
+        <button class="btn btn-primary" id="player-submit-btn" onclick="playerSubmitAnswer()" disabled style="min-width:160px">Lock In Answer</button>
+      </div>
+    </div>
+    <div id="player-waiting-reveal" class="hidden text-center" style="padding:20px 0">
+      <div class="waiting-animation"><div class="dot-wave"></div><div class="dot-wave"></div><div class="dot-wave"></div></div>
+      <p class="text-muted">Waiting for other players…</p>
+    </div>
+    <div id="player-revealed" class="hidden">
+      <div class="player-quote-card">
+        <div class="player-quote-text" id="player-reveal-quote">…</div>
+        <div class="player-quote-source" id="player-reveal-source"></div>
+      </div>
+      <div class="options-list" id="player-reveal-options"></div>
+      <div class="round-result">
+        <span class="result-icon" id="player-result-icon">🌸</span>
+        <div class="result-title" id="player-result-title">Correct!</div>
+        <div class="result-points" id="player-result-points">+100 points</div>
+      </div>
+      <p class="text-muted fs-sm text-center">Waiting for the host to continue…</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ PLAYER GAMEOVER ═══════ -->
+<div id="player-gameover" class="screen">
+  <div class="top-bar"><span class="top-bar-logo">Quote Unquote</span></div>
+  <div class="page-content text-center">
+    <div class="section-title mt-24">Game Over!</div>
+    <div class="section-sub" id="player-gameover-sub">Thanks for playing!</div>
+    <div class="podium" id="player-podium"></div>
+    <div id="player-final-lb" class="card" style="max-width:400px;margin:0 auto 24px"></div>
+    <button class="btn btn-secondary" onclick="showLanding()">Back to Home</button>
+  </div>
+</div>
+
+</div><!-- #app -->
+
+<!-- ═══════ QUESTION MODAL ═══════ -->
+<div class="modal-overlay" id="q-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-title">Add Quote</div>
+      <button class="icon-btn" onclick="closeQuestionModal()">✕</button>
+    </div>
+    <div class="form-group">
+      <label>The Quote</label>
+      <textarea id="m-quote" placeholder='"To infinity and beyond!"' rows="3"></textarea>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+      <div class="form-group">
+        <label>Media Title</label>
+        <input type="text" id="m-media" placeholder="e.g. The Office">
+      </div>
+      <div class="form-group">
+        <label>Media Type</label>
+        <select id="m-media-type">
+          <option value="movie">Movie (standalone)</option>
+          <option value="movie-series">Movie (in a series)</option>
+          <option value="show">TV Show</option>
+          <option value="book">Book</option>
+          <option value="game">Video Game</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+    </div>
+    <div id="m-detail-row" class="form-group" style="display:none">
+      <label id="m-detail-label">Episode / Specific Entry</label>
+      <input type="text" id="m-detail" placeholder="">
+    </div>
+    <hr>
+    <div class="form-group">
+      <label>Answer Options <span style="font-size:.7rem;text-transform:none;letter-spacing:0;color:var(--muted)">(click letter badge to mark the correct answer)</span></label>
+      <div class="options-grid" id="modal-options-grid"></div>
+    </div>
+    <hr>
+    <div class="form-group">
+      <label>Character Images <span style="font-size:.7rem;text-transform:none;letter-spacing:0;color:var(--muted)">(upload file or paste a URL)</span></label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px" id="modal-img-grid"></div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px">
+      <button class="btn btn-ghost" onclick="closeQuestionModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveQuestion()">Save Quote</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ LIBRARY MODAL ═══════ -->
+<div class="modal-overlay" id="lib-modal">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <div class="modal-title">📚 Quote Library</div>
+      <button class="icon-btn" onclick="closeLibModal()">✕</button>
+    </div>
+    <div class="lib-tabs">
+      <div class="lib-tab active" id="ltab-browse" onclick="switchLibTab('browse')">Browse Presets</div>
+      <div class="lib-tab" id="ltab-bulk" onclick="switchLibTab('bulk')">Bulk Import</div>
+      <div class="lib-tab" id="ltab-saved" onclick="switchLibTab('saved')">Saved in Firebase</div>
+    </div>
+
+    <!-- Browse -->
+    <div id="lpane-browse">
+      <div class="lib-toolbar">
+        <input type="text" id="lib-search" placeholder="Search quotes, shows, characters…" oninput="filterLib()">
+        <button class="btn btn-secondary btn-sm" onclick="selectAllLib()">Select All</button>
+        <button class="btn btn-ghost btn-sm" onclick="clearLibSel()">Clear</button>
+        <span class="fs-sm text-muted" id="lib-sel-count">0 selected</span>
+      </div>
+      <div class="lib-grid" id="lib-grid"></div>
+      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px">
+        <button class="btn btn-ghost" onclick="closeLibModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="addLibSelected()">Add to Game</button>
+      </div>
+    </div>
+
+    <!-- Bulk Import -->
+    <div id="lpane-bulk" class="hidden">
+      <div class="bulk-hint">
+        One quote per line in this format:<br>
+        <code>QUOTE | CORRECT CHARACTER | OPTION B | OPTION C | OPTION D | MEDIA TITLE | media-type | detail</code><br>
+        <code>media-type</code> values: <code>movie</code> <code>movie-series</code> <code>show</code> <code>book</code> <code>game</code> <code>other</code><br>
+        Example: <code>You're a wizard, Harry | Rubeus Hagrid | Albus Dumbledore | Minerva McGonagall | Voldemort | Harry Potter | movie-series | Philosopher's Stone (2001)</code>
+      </div>
+      <textarea class="bulk-area" id="bulk-ta" placeholder="Paste your quotes here, one per line…"></textarea>
+      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:12px">
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('bulk-ta').value=''">Clear</button>
+        <button class="btn btn-primary" onclick="doBulkImport()">Import & Save to Firebase</button>
+      </div>
+    </div>
+
+    <!-- Saved -->
+    <div id="lpane-saved" class="hidden">
+      <p class="text-muted fs-sm" style="margin-bottom:14px">Quotes saved in your Firebase database.</p>
+      <div class="lib-grid" id="saved-grid"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;flex-wrap:wrap;gap:10px">
+        <button class="btn btn-ghost btn-sm" onclick="deleteSavedSelected()" style="color:var(--wrong)">🗑 Delete Selected</button>
+        <div style="display:flex;gap:10px">
+          <button class="btn btn-ghost" onclick="closeLibModal()">Cancel</button>
+          <button class="btn btn-primary" onclick="addSavedSelected()">Add to Game</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ══════════════════════════════════
+   FIREBASE INIT
+══════════════════════════════════ */
+const firebaseConfig = {
+  apiKey:"AIzaSyAWey9R0Bb4iansqNGOl9nSh7B1ZdeE6IM",
+  authDomain:"quoteunquote-e743e.firebaseapp.com",
+  projectId:"quoteunquote-e743e",
+  storageBucket:"quoteunquote-e743e.firebasestorage.app",
+  messagingSenderId:"288152337521",
+  appId:"1:288152337521:web:730cc837922612cb0defd0",
+  databaseURL:"https://quoteunquote-e743e-default-rtdb.firebaseio.com"
+};
+
+// Guard against double-init
+let app;
+try {
+  app = firebase.app();
+} catch(e) {
+  app = firebase.initializeApp(firebaseConfig);
+}
+const db = firebase.database();
+
+/* ── BANNER ── */
+let _bannerDismissed = false;
+function dismissBanner() {
+  _bannerDismissed = true;
+  document.getElementById('fb-banner').classList.add('gone');
+}
+
+let _fbConnected = false;
+db.ref('.info/connected').on('value', snap => {
+  const b = document.getElementById('fb-banner');
+  const t = document.getElementById('fb-banner-txt');
+  if (snap.val() === true) {
+    _fbConnected = true;
+    b.className = 'connected';
+    t.textContent = '✓ Firebase connected';
+    if (!_bannerDismissed) setTimeout(dismissBanner, 2400);
+  } else {
+    if (_fbConnected) return; // was connected, now offline — don't flip banner
+    if (_bannerDismissed) return;
+    b.className = 'connecting';
+    t.textContent = 'Connecting to Firebase…';
+  }
+});
+
+// Show error if still not connected after 10s
+setTimeout(() => {
+  if (!_fbConnected && !_bannerDismissed) {
+    const b = document.getElementById('fb-banner');
+    b.className = 'error';
+    document.getElementById('fb-banner-txt').textContent = '✗ Firebase connection failed — check console';
+  }
+}, 10000);
+
+/* ══════════════════════════════════
+   STATE
+══════════════════════════════════ */
+let hostQuestions = [], editingIndex = -1;
+let roomCode = null, playerName = null, playerId = null;
+let currentRound = 0, totalRounds = 0, myScore = 0;
+let playerAnswer = null, hasSubmitted = false;
+let _lastRoundIdx = -1;
+
+// Active Firebase listener refs for cleanup
+let _roomListener = null;
+let _playersListener = null;
+let _subsListener = null;
+let _revealedListener = null;
+let _lbListener = null;
+
+/* ══════════════════════════════════
+   PRESET LIBRARY
+══════════════════════════════════ */
+const PRESETS = [
+  // ═══ HARRY POTTER ═══
+  {quote:"You're a wizard, Harry.",character:"Rubeus Hagrid",options:["Rubeus Hagrid","Albus Dumbledore","Minerva McGonagall","Argus Filch"],media:"Harry Potter",mediaType:"movie-series",detail:"Philosopher's Stone (2001)"},
+  {quote:"It does not do to dwell on dreams and forget to live.",character:"Albus Dumbledore",options:["Albus Dumbledore","Minerva McGonagall","Rubeus Hagrid","Alastor Moody"],media:"Harry Potter",mediaType:"movie-series",detail:"Philosopher's Stone (2001)"},
+  {quote:"There is no good and evil. There is only power, and those too weak to seek it.",character:"Professor Quirrell",options:["Professor Quirrell","Lord Voldemort","Lucius Malfoy","Fenrir Greyback"],media:"Harry Potter",mediaType:"movie-series",detail:"Philosopher's Stone (2001)"},
+  {quote:"Fear of a name only increases fear of the thing itself.",character:"Hermione Granger",options:["Hermione Granger","Albus Dumbledore","Minerva McGonagall","Sirius Black"],media:"Harry Potter",mediaType:"movie-series",detail:"Chamber of Secrets (2002)"},
+  {quote:"It is our choices, Harry, that show what we truly are, far more than our abilities.",character:"Albus Dumbledore",options:["Albus Dumbledore","Minerva McGonagall","Sirius Black","Remus Lupin"],media:"Harry Potter",mediaType:"movie-series",detail:"Chamber of Secrets (2002)"},
+  {quote:"Happiness can be found even in the darkest of times, if one only remembers to turn on the light.",character:"Albus Dumbledore",options:["Albus Dumbledore","Remus Lupin","Sirius Black","Minerva McGonagall"],media:"Harry Potter",mediaType:"movie-series",detail:"Prisoner of Azkaban (2004)"},
+  {quote:"The ones that love us never really leave us. You can always find them in here.",character:"Sirius Black",options:["Sirius Black","Remus Lupin","Albus Dumbledore","James Potter"],media:"Harry Potter",mediaType:"movie-series",detail:"Prisoner of Azkaban (2004)"},
+  {quote:"What's comin' will come, an' we'll meet it when it does.",character:"Rubeus Hagrid",options:["Rubeus Hagrid","Arthur Weasley","Alastor Moody","Kingsley Shacklebolt"],media:"Harry Potter",mediaType:"movie-series",detail:"Goblet of Fire (2005)"},
+  {quote:"I must not tell lies.",character:"Harry Potter",options:["Harry Potter","Draco Malfoy","Neville Longbottom","Luna Lovegood"],media:"Harry Potter",mediaType:"movie-series",detail:"Order of the Phoenix (2007)"},
+  {quote:"The mind is not a book, to be opened at will and examined at leisure.",character:"Severus Snape",options:["Severus Snape","Albus Dumbledore","Minerva McGonagall","Dolores Umbridge"],media:"Harry Potter",mediaType:"movie-series",detail:"Order of the Phoenix (2007)"},
+  {quote:"You dare use my own spells against me, Potter?",character:"Severus Snape",options:["Severus Snape","Lucius Malfoy","Bellatrix Lestrange","Lord Voldemort"],media:"Harry Potter",mediaType:"movie-series",detail:"Half-Blood Prince (2009)"},
+  {quote:"I am the Half-Blood Prince.",character:"Severus Snape",options:["Severus Snape","Lord Voldemort","Lucius Malfoy","Albus Dumbledore"],media:"Harry Potter",mediaType:"movie-series",detail:"Half-Blood Prince (2009)"},
+  {quote:"Always.",character:"Severus Snape",options:["Severus Snape","Albus Dumbledore","Sirius Black","Remus Lupin"],media:"Harry Potter",mediaType:"movie-series",detail:"Deathly Hallows – Part 2 (2011)"},
+  {quote:"Of course it is happening inside your head, Harry, but why on earth should that mean that it is not real?",character:"Albus Dumbledore",options:["Albus Dumbledore","Severus Snape","Remus Lupin","Sirius Black"],media:"Harry Potter",mediaType:"movie-series",detail:"Deathly Hallows – Part 2 (2011)"},
+  {quote:"Not my daughter, you bitch!",character:"Molly Weasley",options:["Molly Weasley","Minerva McGonagall","Nymphadora Tonks","Fleur Delacour"],media:"Harry Potter",mediaType:"movie-series",detail:"Deathly Hallows – Part 2 (2011)"},
+  {quote:"Why do you live?",character:"Lord Voldemort",options:["Lord Voldemort","Bellatrix Lestrange","Lucius Malfoy","Fenrir Greyback"],media:"Harry Potter",mediaType:"movie-series",detail:"Deathly Hallows – Part 2 (2011)"},
+  {quote:"I open at the close.",character:"Albus Dumbledore",options:["Albus Dumbledore","Harry Potter","Hermione Granger","Ron Weasley"],media:"Harry Potter",mediaType:"movie-series",detail:"Deathly Hallows – Part 1 (2010)"},
+  {quote:"We could all have been killed — or worse, expelled.",character:"Hermione Granger",options:["Hermione Granger","Ron Weasley","Harry Potter","Neville Longbottom"],media:"Harry Potter",mediaType:"movie-series",detail:"Philosopher's Stone (2001)"},
+  {quote:"Dobby has no master. Dobby is a free elf!",character:"Dobby",options:["Dobby","Kreacher","Winky","Hokey"],media:"Harry Potter",mediaType:"movie-series",detail:"Chamber of Secrets (2002)"},
+  {quote:"You'll find that help will always be given at Hogwarts to those who ask for it.",character:"Albus Dumbledore",options:["Albus Dumbledore","Minerva McGonagall","Rubeus Hagrid","Filius Flitwick"],media:"Harry Potter",mediaType:"movie-series",detail:"Chamber of Secrets (2002)"},
+  {quote:"Wit beyond measure is man's greatest treasure.",character:"Luna Lovegood",options:["Luna Lovegood","Hermione Granger","Albus Dumbledore","Gilderoy Lockhart"],media:"Harry Potter",mediaType:"movie-series",detail:"Order of the Phoenix (2007)"},
+  {quote:"Things we lose have a way of coming back to us in the end, if not always in the way we expect.",character:"Luna Lovegood",options:["Luna Lovegood","Albus Dumbledore","Hermione Granger","Ginny Weasley"],media:"Harry Potter",mediaType:"movie-series",detail:"Order of the Phoenix (2007)"},
+  {quote:"Draco Malfoy, the amazing bouncing ferret.",character:"Ron Weasley",options:["Ron Weasley","Harry Potter","Fred Weasley","George Weasley"],media:"Harry Potter",mediaType:"movie-series",detail:"Goblet of Fire (2005)"},
+  {quote:"You're the weak one. And you'll never know love, or friendship. And I feel sorry for you.",character:"Harry Potter",options:["Harry Potter","Neville Longbottom","Ron Weasley","Hermione Granger"],media:"Harry Potter",mediaType:"movie-series",detail:"Order of the Phoenix (2007)"},
+  {quote:"Numbing the pain for a while will make it worse when you finally feel it.",character:"Albus Dumbledore",options:["Albus Dumbledore","Remus Lupin","Sirius Black","Minerva McGonagall"],media:"Harry Potter",mediaType:"movie-series",detail:"Goblet of Fire (2005)"},
+  {quote:"Do not pity the dead, Harry. Pity the living, and above all, those who live without love.",character:"Albus Dumbledore",options:["Albus Dumbledore","Sirius Black","Remus Lupin","Severus Snape"],media:"Harry Potter",mediaType:"movie-series",detail:"Deathly Hallows – Part 2 (2011)"},
+  {quote:"We're all human, aren't we? Every human life is worth the same, and worth saving.",character:"Kingsley Shacklebolt",options:["Kingsley Shacklebolt","Arthur Weasley","Albus Dumbledore","Remus Lupin"],media:"Harry Potter",mediaType:"movie-series",detail:"Deathly Hallows – Part 1 (2010)"},
+  {quote:"I am what I am, an' I'm not ashamed.",character:"Rubeus Hagrid",options:["Rubeus Hagrid","Neville Longbottom","Arthur Weasley","Ron Weasley"],media:"Harry Potter",mediaType:"movie-series",detail:"Goblet of Fire (2005)"},
+  {quote:"It takes a great deal of bravery to stand up to our enemies, but just as much to stand up to our friends.",character:"Albus Dumbledore",options:["Albus Dumbledore","Minerva McGonagall","Sirius Black","Remus Lupin"],media:"Harry Potter",mediaType:"movie-series",detail:"Philosopher's Stone (2001)"},
+  {quote:"Longbottom, if brains were gold, you'd be poorer than Weasley, and that's saying something.",character:"Draco Malfoy",options:["Draco Malfoy","Severus Snape","Gregory Goyle","Vincent Crabbe"],media:"Harry Potter",mediaType:"movie-series",detail:"Philosopher's Stone (2001)"},
+  {quote:"Books! And cleverness! There are more important things — friendship and bravery.",character:"Hermione Granger",options:["Hermione Granger","Ginny Weasley","Luna Lovegood","Nymphadora Tonks"],media:"Harry Potter",mediaType:"movie-series",detail:"Philosopher's Stone (2001)"},
+  {quote:"Azkaban — the wizard prison, Hagrid. I imagine if he could have done one thing to make absolutely sure I didn't get a place at Hogwarts, it was to send me there.",character:"Draco Malfoy",options:["Draco Malfoy","Lucius Malfoy","Severus Snape","Lord Voldemort"],media:"Harry Potter",mediaType:"movie-series",detail:"Philosopher's Stone (2001)"},
+  {quote:"Honestly, am I the only one who's read Hogwarts: A History?",character:"Hermione Granger",options:["Hermione Granger","Percy Weasley","Luna Lovegood","Ginny Weasley"],media:"Harry Potter",mediaType:"movie-series",detail:"Chamber of Secrets (2002)"},
+  {quote:"Harry Potter must not return to Hogwarts.",character:"Dobby",options:["Dobby","Kreacher","Winky","Hokey"],media:"Harry Potter",mediaType:"movie-series",detail:"Chamber of Secrets (2002)"},
+  {quote:"I'm going to bed before either of you come up with another clever idea to get us killed — or worse, expelled.",character:"Hermione Granger",options:["Hermione Granger","Ginny Weasley","Nymphadora Tonks","Luna Lovegood"],media:"Harry Potter",mediaType:"movie-series",detail:"Philosopher's Stone (2001)"},
+  {quote:"Training for the ballet, Potter?",character:"Draco Malfoy",options:["Draco Malfoy","Severus Snape","Lucius Malfoy","Vincent Crabbe"],media:"Harry Potter",mediaType:"movie-series",detail:"Philosopher's Stone (2001)"},
+  {quote:"I can teach you how to bewitch the mind and ensnare the senses.",character:"Severus Snape",options:["Severus Snape","Albus Dumbledore","Professor Quirrell","Gilderoy Lockhart"],media:"Harry Potter",mediaType:"movie-series",detail:"Philosopher's Stone (2001)"},
+  {quote:"Honestly, woman. You call yourself our mother.",character:"Fred Weasley",options:["Fred Weasley","George Weasley","Ron Weasley","Bill Weasley"],media:"Harry Potter",mediaType:"movie-series",detail:"Deathly Hallows – Part 1 (2010)"},
+  {quote:"We are only as strong as we are united, as weak as we are divided.",character:"Albus Dumbledore",options:["Albus Dumbledore","Minerva McGonagall","Alastor Moody","Kingsley Shacklebolt"],media:"Harry Potter",mediaType:"movie-series",detail:"Goblet of Fire (2005)"},
+  {quote:"The truth. It is a beautiful and terrible thing, and should therefore be treated with great caution.",character:"Albus Dumbledore",options:["Albus Dumbledore","Severus Snape","Remus Lupin","Sirius Black"],media:"Harry Potter",mediaType:"movie-series",detail:"Philosopher's Stone (2001)"},
+
+  // ═══ SHERLOCK (BBC) ═══
+  {quote:"When you have eliminated the impossible, whatever remains, however improbable, must be the truth.",character:"Sherlock Holmes",options:["Sherlock Holmes","John Watson","Mycroft Holmes","Irene Adler"],media:"Sherlock",mediaType:"show",detail:'S02E01 – "A Scandal in Belgravia"'},
+  {quote:"I'm not a psychopath, Anderson, I'm a high-functioning sociopath. Do your research.",character:"Sherlock Holmes",options:["Sherlock Holmes","Mycroft Holmes","James Moriarty","Irene Adler"],media:"Sherlock",mediaType:"show",detail:'S01E01 – "A Study in Pink"'},
+  {quote:"You've been in Afghanistan, I perceive.",character:"Sherlock Holmes",options:["Sherlock Holmes","Mycroft Holmes","Stamford","Greg Lestrade"],media:"Sherlock",mediaType:"show",detail:'S01E01 – "A Study in Pink"'},
+  {quote:"The game is on.",character:"Sherlock Holmes",options:["Sherlock Holmes","John Watson","James Moriarty","Mycroft Holmes"],media:"Sherlock",mediaType:"show",detail:'S01E01 – "A Study in Pink"'},
+  {quote:"I'm not your housekeeper.",character:"Mrs. Hudson",options:["Mrs. Hudson","Molly Hooper","Irene Adler","Mary Watson"],media:"Sherlock",mediaType:"show",detail:'S01E01 – "A Study in Pink"'},
+  {quote:"Dear me, Mr. Holmes. Dear me.",character:"James Moriarty",options:["James Moriarty","Mycroft Holmes","Charles Augustus Magnussen","Irene Adler"],media:"Sherlock",mediaType:"show",detail:'S01E03 – "The Great Game"'},
+  {quote:"I am a consulting criminal. You've heard of Sherlock Holmes? Well, I'm his nemesis.",character:"James Moriarty",options:["James Moriarty","Irene Adler","Charles Augustus Magnussen","Sebastian Moran"],media:"Sherlock",mediaType:"show",detail:'S01E03 – "The Great Game"'},
+  {quote:"Every fairy tale needs a good old-fashioned villain.",character:"James Moriarty",options:["James Moriarty","Irene Adler","Mycroft Holmes","Charles Augustus Magnussen"],media:"Sherlock",mediaType:"show",detail:'S02E03 – "The Reichenbach Fall"'},
+  {quote:"I may be on the side of the angels, but don't think for one second that I am one of them.",character:"Sherlock Holmes",options:["Sherlock Holmes","James Moriarty","Mycroft Holmes","John Watson"],media:"Sherlock",mediaType:"show",detail:'S02E03 – "The Reichenbach Fall"'},
+  {quote:"Sherlock is actually a girl's name.",character:"James Moriarty",options:["James Moriarty","Irene Adler","Mycroft Holmes","Anderson"],media:"Sherlock",mediaType:"show",detail:'S02E03 – "The Reichenbach Fall"'},
+  {quote:"You're not haunted by the war, Dr. Watson. You miss it.",character:"Sherlock Holmes",options:["Sherlock Holmes","Mycroft Holmes","Irene Adler","James Moriarty"],media:"Sherlock",mediaType:"show",detail:'S01E01 – "A Study in Pink"'},
+  {quote:"I looked you up on the internet last night.",character:"John Watson",options:["John Watson","Sherlock Holmes","Greg Lestrade","Mrs. Hudson"],media:"Sherlock",mediaType:"show",detail:'S01E01 – "A Study in Pink"'},
+  {quote:"I always hear punch me in the face when you're speaking, but it's usually subtext.",character:"John Watson",options:["John Watson","Sherlock Holmes","Greg Lestrade","Mycroft Holmes"],media:"Sherlock",mediaType:"show",detail:'S02E01 – "A Scandal in Belgravia"'},
+  {quote:"Bored.",character:"Sherlock Holmes",options:["Sherlock Holmes","John Watson","Mycroft Holmes","James Moriarty"],media:"Sherlock",mediaType:"show",detail:'S01E02 – "The Blind Banker"'},
+  {quote:"I don't have friends. I just have one.",character:"Sherlock Holmes",options:["Sherlock Holmes","Mycroft Holmes","James Moriarty","Irene Adler"],media:"Sherlock",mediaType:"show",detail:'S02E01 – "A Scandal in Belgravia"'},
+  {quote:"Brainy is the new sexy.",character:"Irene Adler",options:["Irene Adler","Sherlock Holmes","Molly Hooper","Mary Watson"],media:"Sherlock",mediaType:"show",detail:'S02E01 – "A Scandal in Belgravia"'},
+  {quote:"How are we doing this? Shall I be John? I'll be John.",character:"James Moriarty",options:["James Moriarty","Mycroft Holmes","Irene Adler","Charles Augustus Magnussen"],media:"Sherlock",mediaType:"show",detail:'S02E03 – "The Reichenbach Fall"'},
+  {quote:"Vatican cameos.",character:"Sherlock Holmes",options:["Sherlock Holmes","John Watson","Mycroft Holmes","Mary Watson"],media:"Sherlock",mediaType:"show",detail:'S03E02 – "The Sign of Three"'},
+  {quote:"The name is Sherlock Holmes, and the address is 221B Baker Street.",character:"Sherlock Holmes",options:["Sherlock Holmes","John Watson","Mycroft Holmes","Mrs. Hudson"],media:"Sherlock",mediaType:"show",detail:'S01E01 – "A Study in Pink"'},
+  {quote:"John, you are my best friend.",character:"Sherlock Holmes",options:["Sherlock Holmes","Mycroft Holmes","James Moriarty","Greg Lestrade"],media:"Sherlock",mediaType:"show",detail:'S03E02 – "The Sign of Three"'},
+  {quote:"I'm a ridiculous man redeemed only by the warmth and constancy of your friendship.",character:"Sherlock Holmes",options:["Sherlock Holmes","Mycroft Holmes","John Watson","James Moriarty"],media:"Sherlock",mediaType:"show",detail:'S03E02 – "The Sign of Three"'},
+  {quote:"Afghanistan or Iraq?",character:"Sherlock Holmes",options:["Sherlock Holmes","John Watson","Greg Lestrade","Mycroft Holmes"],media:"Sherlock",mediaType:"show",detail:'S01E01 – "A Study in Pink"'},
+  {quote:"I'm not a good man, and I'm not a bad man. I'm the man who stops you.",character:"Sherlock Holmes",options:["Sherlock Holmes","John Watson","James Moriarty","Mycroft Holmes"],media:"Sherlock",mediaType:"show",detail:'S02E01 – "A Scandal in Belgravia"'},
+  {quote:"My mind is a racecar.",character:"Sherlock Holmes",options:["Sherlock Holmes","James Moriarty","Mycroft Holmes","Irene Adler"],media:"Sherlock",mediaType:"show",detail:'S01E01 – "A Study in Pink"'},
+  {quote:"People have died.",character:"Greg Lestrade",options:["Greg Lestrade","John Watson","Mrs. Hudson","Molly Hooper"],media:"Sherlock",mediaType:"show",detail:'S01E01 – "A Study in Pink"'},
+  {quote:"I am sherlocked.",character:"Irene Adler",options:["Irene Adler","Sherlock Holmes","Molly Hooper","Mary Watson"],media:"Sherlock",mediaType:"show",detail:'S02E01 – "A Scandal in Belgravia"'},
+  {quote:"Once you eliminate the impossible, whatever remains, no matter how improbable, must be the truth.",character:"Sherlock Holmes",options:["Sherlock Holmes","John Watson","Mycroft Holmes","Greg Lestrade"],media:"Sherlock",mediaType:"show",detail:'S01E03 – "The Great Game"'},
+  {quote:"I need you.",character:"James Moriarty",options:["James Moriarty","Sherlock Holmes","Irene Adler","Mycroft Holmes"],media:"Sherlock",mediaType:"show",detail:'S02E03 – "The Reichenbach Fall"'},
+  {quote:"You see but you do not observe. The distinction is clear.",character:"Sherlock Holmes",options:["Sherlock Holmes","Mycroft Holmes","John Watson","James Moriarty"],media:"Sherlock",mediaType:"show",detail:'S01E02 – "The Blind Banker"'},
+  {quote:"Did you miss me?",character:"James Moriarty",options:["James Moriarty","Sherlock Holmes","Irene Adler","Mycroft Holmes"],media:"Sherlock",mediaType:"show",detail:'S03E03 – "His Last Vow"'},
+  {quote:"I'm not actually that hard to find.",character:"Mycroft Holmes",options:["Mycroft Holmes","Sherlock Holmes","Greg Lestrade","James Moriarty"],media:"Sherlock",mediaType:"show",detail:'S01E03 – "The Great Game"'},
+  {quote:"Caring is not an advantage.",character:"Mycroft Holmes",options:["Mycroft Holmes","Sherlock Holmes","James Moriarty","Irene Adler"],media:"Sherlock",mediaType:"show",detail:'S02E03 – "The Reichenbach Fall"'},
+  {quote:"I'm not a hero, John. I'm a high-functioning sociopath.",character:"Sherlock Holmes",options:["Sherlock Holmes","James Moriarty","Mycroft Holmes","John Watson"],media:"Sherlock",mediaType:"show",detail:'S02E01 – "A Scandal in Belgravia"'},
+  {quote:"Oh, I may be on the side of the angels, but don't think for one second that I am one of them.",character:"Sherlock Holmes",options:["Sherlock Holmes","James Moriarty","John Watson","Mycroft Holmes"],media:"Sherlock",mediaType:"show",detail:'S02E03 – "The Reichenbach Fall"'},
+
+  // ═══ HANNIBAL (NBC) ═══
+  {quote:"This is my design.",character:"Will Graham",options:["Will Graham","Hannibal Lecter","Jack Crawford","Freddie Lounds"],media:"Hannibal",mediaType:"show",detail:'S01E01 – "Apéritif"'},
+  {quote:"I never feel guilty eating anything.",character:"Hannibal Lecter",options:["Hannibal Lecter","Will Graham","Bedelia Du Maurier","Frederick Chilton"],media:"Hannibal",mediaType:"show",detail:'S01E02 – "Amuse-Bouche"'},
+  {quote:"Killing must feel good to God, too. He does it all the time, and are we not made in His image?",character:"Hannibal Lecter",options:["Hannibal Lecter","Will Graham","Abel Gideon","Francis Dolarhyde"],media:"Hannibal",mediaType:"show",detail:'S01E03 – "Potage"'},
+  {quote:"You can't reduce me to a set of influences.",character:"Hannibal Lecter",options:["Hannibal Lecter","Will Graham","Bedelia Du Maurier","Alana Bloom"],media:"Hannibal",mediaType:"show",detail:'S01E08 – "Fromage"'},
+  {quote:"I've always found the idea of death comforting.",character:"Hannibal Lecter",options:["Hannibal Lecter","Will Graham","Bedelia Du Maurier","Frederick Chilton"],media:"Hannibal",mediaType:"show",detail:'S01E01 – "Apéritif"'},
+  {quote:"At a time when other men fear their isolation, yours has become understandable to me.",character:"Hannibal Lecter",options:["Hannibal Lecter","Will Graham","Jack Crawford","Alana Bloom"],media:"Hannibal",mediaType:"show",detail:'S01E09 – "Trou Normand"'},
+  {quote:"I am not the intelligent psychopath you're looking for.",character:"Will Graham",options:["Will Graham","Hannibal Lecter","Frederick Chilton","Abel Gideon"],media:"Hannibal",mediaType:"show",detail:'S01E10 – "Buffet Froid"'},
+  {quote:"My relationship with Hannibal Lecter was that of patient and therapist. Until it wasn't.",character:"Bedelia Du Maurier",options:["Bedelia Du Maurier","Alana Bloom","Freddie Lounds","Molly Graham"],media:"Hannibal",mediaType:"show",detail:'S02E01 – "Kaiseki"'},
+  {quote:"You are suspended over a great dark pit. The ladder is gone.",character:"Hannibal Lecter",options:["Hannibal Lecter","Will Graham","Abel Gideon","Bedelia Du Maurier"],media:"Hannibal",mediaType:"show",detail:'S02E07 – "Yakimono"'},
+  {quote:"I want you to know exactly who I am. I want you to know what it is to be known.",character:"Hannibal Lecter",options:["Hannibal Lecter","Will Graham","Francis Dolarhyde","Mason Verger"],media:"Hannibal",mediaType:"show",detail:'S02E13 – "Mizumono"'},
+  {quote:"I've never had to question who I was before you.",character:"Will Graham",options:["Will Graham","Hannibal Lecter","Alana Bloom","Jack Crawford"],media:"Hannibal",mediaType:"show",detail:'S02E13 – "Mizumono"'},
+  {quote:"You're going to feel so good when this is over.",character:"Hannibal Lecter",options:["Hannibal Lecter","Will Graham","Frederick Chilton","Mason Verger"],media:"Hannibal",mediaType:"show",detail:'S03E01 – "Antipasto"'},
+  {quote:"He left the imprint of his hands in you.",character:"Bedelia Du Maurier",options:["Bedelia Du Maurier","Alana Bloom","Freddie Lounds","Molly Graham"],media:"Hannibal",mediaType:"show",detail:'S03E04 – "Aperitivo"'},
+  {quote:"Is this what you imagined, when they told you to imagine a rampant, ravening beast?",character:"Francis Dolarhyde",options:["Francis Dolarhyde","Hannibal Lecter","Will Graham","Mason Verger"],media:"Hannibal",mediaType:"show",detail:'S03E11 – "...And the Beast from the Sea"'},
+  {quote:"This is all I know how to do.",character:"Will Graham",options:["Will Graham","Hannibal Lecter","Jack Crawford","Francis Dolarhyde"],media:"Hannibal",mediaType:"show",detail:'S03E12 – "The Number of the Beast Is 666..."'},
+  {quote:"If I saw you every day forever, I would remember this time.",character:"Hannibal Lecter",options:["Hannibal Lecter","Will Graham","Bedelia Du Maurier","Alana Bloom"],media:"Hannibal",mediaType:"show",detail:'S01E12 – "Relevés"'},
+  {quote:"Hannibal Lecter is not the Ripper.",character:"Frederick Chilton",options:["Frederick Chilton","Alana Bloom","Jack Crawford","Will Graham"],media:"Hannibal",mediaType:"show",detail:'S02E10 – "Naka-Choko"'},
+  {quote:"I've always found the act of killing clarifying.",character:"Hannibal Lecter",options:["Hannibal Lecter","Will Graham","Francis Dolarhyde","Mason Verger"],media:"Hannibal",mediaType:"show",detail:'S03E13 – "The Wrath of the Lamb"'},
+  {quote:"It really does look black in the moonlight.",character:"Will Graham",options:["Will Graham","Hannibal Lecter","Francis Dolarhyde","Bedelia Du Maurier"],media:"Hannibal",mediaType:"show",detail:'S03E13 – "The Wrath of the Lamb"'},
+  {quote:"I imagine what you see and I believe you. You believe me. That's something.",character:"Hannibal Lecter",options:["Hannibal Lecter","Will Graham","Bedelia Du Maurier","Alana Bloom"],media:"Hannibal",mediaType:"show",detail:'S03E08 – "The Great Red Dragon"'},
+  {quote:"I'm just a curious person.",character:"Will Graham",options:["Will Graham","Hannibal Lecter","Jack Crawford","Alana Bloom"],media:"Hannibal",mediaType:"show",detail:'S01E01 – "Apéritif"'},
+  {quote:"Your perceptions are keener than most, Will.",character:"Jack Crawford",options:["Jack Crawford","Hannibal Lecter","Alana Bloom","Bedelia Du Maurier"],media:"Hannibal",mediaType:"show",detail:'S01E01 – "Apéritif"'},
+  {quote:"I have a colleague who thinks you're unstable.",character:"Jack Crawford",options:["Jack Crawford","Alana Bloom","Frederick Chilton","Hannibal Lecter"],media:"Hannibal",mediaType:"show",detail:'S01E01 – "Apéritif"'},
+  {quote:"I've had to draw a very hard line between my professional and personal life.",character:"Alana Bloom",options:["Alana Bloom","Bedelia Du Maurier","Freddie Lounds","Molly Graham"],media:"Hannibal",mediaType:"show",detail:'S01E05 – "Coquilles"'},
+  {quote:"The tragedy is not to die, but to be wasted.",character:"Hannibal Lecter",options:["Hannibal Lecter","Will Graham","Bedelia Du Maurier","Francis Dolarhyde"],media:"Hannibal",mediaType:"show",detail:'S02E06 – "Futamono"'},
+  {quote:"Don't psychoanalyze me. You won't like what you find.",character:"Will Graham",options:["Will Graham","Hannibal Lecter","Alana Bloom","Frederick Chilton"],media:"Hannibal",mediaType:"show",detail:'S01E04 – "Oeuf"'},
+  {quote:"I'm not someone you should get to know.",character:"Will Graham",options:["Will Graham","Hannibal Lecter","Jack Crawford","Frederick Chilton"],media:"Hannibal",mediaType:"show",detail:'S01E01 – "Apéritif"'},
+  {quote:"I admire your ability to see beauty in unexpected places.",character:"Hannibal Lecter",options:["Hannibal Lecter","Will Graham","Bedelia Du Maurier","Francis Dolarhyde"],media:"Hannibal",mediaType:"show",detail:'S02E05 – "Mukozuke"'},
+  {quote:"What happened here is going to happen again.",character:"Will Graham",options:["Will Graham","Hannibal Lecter","Jack Crawford","Alana Bloom"],media:"Hannibal",mediaType:"show",detail:'S01E01 – "Apéritif"'},
+
+  // ═══ GOOD OMENS ═══
+  {quote:"I'm an angel. I can't be corrupted.",character:"Aziraphale",options:["Aziraphale","Crowley","Gabriel","Beelzebub"],media:"Good Omens",mediaType:"show",detail:'S01E01 – "In the Beginning"'},
+  {quote:"I like the plants. They're easier to talk to.",character:"Crowley",options:["Crowley","Aziraphale","Beelzebub","Satan"],media:"Good Omens",mediaType:"show",detail:'S01E02 – "The Book"'},
+  {quote:"Demons don't have friends. Certainly not angels.",character:"Crowley",options:["Crowley","Beelzebub","Hastur","Ligur"],media:"Good Omens",mediaType:"show",detail:'S01E01 – "In the Beginning"'},
+  {quote:"God does not play dice with the universe.",character:"The Narrator",options:["The Narrator","Aziraphale","Metatron","Gabriel"],media:"Good Omens",mediaType:"show",detail:'S01E01 – "In the Beginning"'},
+  {quote:"I just don't think we should be doing anything ineffable right now.",character:"Aziraphale",options:["Aziraphale","Crowley","Gabriel","Metatron"],media:"Good Omens",mediaType:"show",detail:'S01E03 – "Hard Times"'},
+  {quote:"Heaven has a lot of squares. It's Heaven, you'd think they'd be rounder.",character:"Crowley",options:["Crowley","Aziraphale","Gabriel","Beelzebub"],media:"Good Omens",mediaType:"show",detail:'S01E01 – "In the Beginning"'},
+  {quote:"You go too fast for me, Crowley.",character:"Aziraphale",options:["Aziraphale","Adam Young","Anathema Device","Newt Pulsifer"],media:"Good Omens",mediaType:"show",detail:'S01E03 – "Hard Times"'},
+  {quote:"It's the end of the world. Everyone has to be somewhere.",character:"Crowley",options:["Crowley","Aziraphale","Hastur","Dagon"],media:"Good Omens",mediaType:"show",detail:'S01E06 – "The Very Last Day of the Rest of Their Lives"'},
+  {quote:"Heaven, Hell — they're both wrong. I know that now.",character:"Adam Young",options:["Adam Young","Aziraphale","Crowley","Anathema Device"],media:"Good Omens",mediaType:"show",detail:'S01E06 – "The Very Last Day of the Rest of Their Lives"'},
+  {quote:"If I'm going to be blamed for something, I'd rather it be something I actually did.",character:"Aziraphale",options:["Aziraphale","Crowley","Gabriel","Metatron"],media:"Good Omens",mediaType:"show",detail:'S01E05 – "The Doomsday Option"'},
+  {quote:"We've been an item since the Garden of Eden.",character:"Aziraphale",options:["Aziraphale","Crowley","Gabriel","The Narrator"],media:"Good Omens",mediaType:"show",detail:'S01E06 – "The Very Last Day of the Rest of Their Lives"'},
+  {quote:"Shut your stupid mouth and drive the car.",character:"Aziraphale",options:["Aziraphale","Crowley","Beelzebub","Satan"],media:"Good Omens",mediaType:"show",detail:'S01E05 – "The Doomsday Option"'},
+  {quote:"I've never been able to resist a nice librarian.",character:"Crowley",options:["Crowley","Aziraphale","Beelzebub","Hastur"],media:"Good Omens",mediaType:"show",detail:'S01E02 – "The Book"'},
+  {quote:"Don't you start. I know your game.",character:"Aziraphale",options:["Aziraphale","Crowley","Gabriel","Metatron"],media:"Good Omens",mediaType:"show",detail:'S02E01 – "The Arrival"'},
+  {quote:"I want you to know — I forgive you.",character:"Aziraphale",options:["Aziraphale","Crowley","Gabriel","Job"],media:"Good Omens",mediaType:"show",detail:'S02E06 – "Every Day"'},
+  {quote:"I think I'm in love with you, and I'm terrified.",character:"Crowley",options:["Crowley","Aziraphale","Gabriel","Beelzebub"],media:"Good Omens",mediaType:"show",detail:'S02E06 – "Every Day"'},
+  {quote:"You can't kill me. I'm the Antichrist.",character:"Adam Young",options:["Adam Young","Crowley","Beelzebub","Hastur"],media:"Good Omens",mediaType:"show",detail:'S01E06 – "The Very Last Day of the Rest of Their Lives"'},
+  {quote:"You are not going to believe this, but I can be bribed.",character:"Crowley",options:["Crowley","Aziraphale","Gabriel","Hastur"],media:"Good Omens",mediaType:"show",detail:'S01E01 – "In the Beginning"'},
+  {quote:"It's nice to think that humans invented something good.",character:"Aziraphale",options:["Aziraphale","Crowley","Gabriel","The Narrator"],media:"Good Omens",mediaType:"show",detail:'S01E03 – "Hard Times"'},
+  {quote:"I'm an angel. I don't have desires.",character:"Gabriel",options:["Gabriel","Aziraphale","Metatron","Crowley"],media:"Good Omens",mediaType:"show",detail:'S02E01 – "The Arrival"'},
+  {quote:"Nothing ever happens because of me. I'm the Metatron.",character:"Metatron",options:["Metatron","Gabriel","Aziraphale","The Narrator"],media:"Good Omens",mediaType:"show",detail:'S01E06 – "The Very Last Day of the Rest of Their Lives"'},
+  {quote:"I was the one who came up with the idea of free will.",character:"Crowley",options:["Crowley","Aziraphale","Adam Young","The Narrator"],media:"Good Omens",mediaType:"show",detail:'S01E03 – "Hard Times"'},
+  {quote:"We're on nobody's side. Or rather, we're on the side of the people of the world.",character:"Aziraphale",options:["Aziraphale","Crowley","Adam Young","The Narrator"],media:"Good Omens",mediaType:"show",detail:'S01E06 – "The Very Last Day of the Rest of Their Lives"'},
+  {quote:"You've been with me since the beginning.",character:"Aziraphale",options:["Aziraphale","Crowley","Gabriel","The Narrator"],media:"Good Omens",mediaType:"show",detail:'S01E01 – "In the Beginning"'},
+  {quote:"Plants thrive under my care because they're afraid not to.",character:"Crowley",options:["Crowley","Aziraphale","Beelzebub","Hastur"],media:"Good Omens",mediaType:"show",detail:'S01E02 – "The Book"'},
+
+  // ═══ SUPERNATURAL ═══
+  {quote:"Saving people, hunting things — the family business.",character:"Dean Winchester",options:["Dean Winchester","Sam Winchester","Bobby Singer","Castiel"],media:"Supernatural",mediaType:"show",detail:'S01E02 – "Wendigo"'},
+  {quote:"Driver picks the music. Shotgun shuts his cakehole.",character:"Dean Winchester",options:["Dean Winchester","Sam Winchester","Bobby Singer","John Winchester"],media:"Supernatural",mediaType:"show",detail:'S01E01 – "Pilot"'},
+  {quote:"I lost my shoe.",character:"Sam Winchester",options:["Sam Winchester","Dean Winchester","Castiel","Bobby Singer"],media:"Supernatural",mediaType:"show",detail:'S06E15 – "The French Mistake"'},
+  {quote:"I'm the one who gripped you tight and raised you from perdition.",character:"Castiel",options:["Castiel","Balthazar","Gabriel","Metatron"],media:"Supernatural",mediaType:"show",detail:'S04E01 – "Lazarus Rising"'},
+  {quote:"I don't understand that reference.",character:"Castiel",options:["Castiel","Bobby Singer","Crowley","Metatron"],media:"Supernatural",mediaType:"show",detail:'S05E08 – "Changing Channels"'},
+  {quote:"Balls.",character:"Bobby Singer",options:["Bobby Singer","Dean Winchester","Sam Winchester","Rufus Turner"],media:"Supernatural",mediaType:"show",detail:'S05E02 – "Good God, Y\'All"'},
+  {quote:"Family don't end with blood, boy.",character:"Bobby Singer",options:["Bobby Singer","Dean Winchester","John Winchester","Pastor Jim"],media:"Supernatural",mediaType:"show",detail:'S03E16 – "No Rest for the Wicked"'},
+  {quote:"Idjits.",character:"Bobby Singer",options:["Bobby Singer","Dean Winchester","Sam Winchester","Rufus Turner"],media:"Supernatural",mediaType:"show",detail:'S02E22 – "All Hell Breaks Loose – Part 2"'},
+  {quote:"Hey, assbutt!",character:"Castiel",options:["Castiel","Dean Winchester","Sam Winchester","Gabriel"],media:"Supernatural",mediaType:"show",detail:'S05E22 – "Swan Song"'},
+  {quote:"I'm an angel of the Lord.",character:"Castiel",options:["Castiel","Gabriel","Balthazar","Gadreel"],media:"Supernatural",mediaType:"show",detail:'S04E01 – "Lazarus Rising"'},
+  {quote:"Sam Winchester cries his way through sex.",character:"Gabriel",options:["Gabriel","Crowley","Balthazar","Metatron"],media:"Supernatural",mediaType:"show",detail:'S05E08 – "Changing Channels"'},
+  {quote:"I'm your huckleberry.",character:"Crowley",options:["Crowley","Dean Winchester","Metatron","Balthazar"],media:"Supernatural",mediaType:"show",detail:'S06E21 – "Let It Bleed"'},
+  {quote:"I love you.",character:"Castiel",options:["Castiel","Dean Winchester","Sam Winchester","Jack Kline"],media:"Supernatural",mediaType:"show",detail:'S15E18 – "Despair"'},
+  {quote:"Dean, this is a den of iniquity. I should not be here.",character:"Castiel",options:["Castiel","Sam Winchester","Bobby Singer","Gabriel"],media:"Supernatural",mediaType:"show",detail:'S07E12 – "Time After Time"'},
+  {quote:"I think I'm starting to understand your pain, Dean.",character:"Castiel",options:["Castiel","Gabriel","Balthazar","Metatron"],media:"Supernatural",mediaType:"show",detail:'S06E03 – "The Third Man"'},
+  {quote:"Hello, I'm God.",character:"Chuck Shurley",options:["Chuck Shurley","Metatron","Gabriel","Castiel"],media:"Supernatural",mediaType:"show",detail:'S04E22 – "Lucifer Rising"'},
+  {quote:"We are not stronger because we are not bound by love.",character:"Michael",options:["Michael","Lucifer","Chuck Shurley","Metatron"],media:"Supernatural",mediaType:"show",detail:'S05E13 – "The Song Remains the Same"'},
+  {quote:"I'm multidimensional. It's confusing.",character:"Gabriel",options:["Gabriel","Castiel","Metatron","Balthazar"],media:"Supernatural",mediaType:"show",detail:'S05E08 – "Changing Channels"'},
+  {quote:"You know what I hate most about Halloween? It's amateur night.",character:"Dean Winchester",options:["Dean Winchester","Sam Winchester","Bobby Singer","Castiel"],media:"Supernatural",mediaType:"show",detail:'S06E18 – "Frontierland"'},
+  {quote:"I could go with you.",character:"Castiel",options:["Castiel","Gabriel","Balthazar","Sam Winchester"],media:"Supernatural",mediaType:"show",detail:'S15E18 – "Despair"'},
+  {quote:"You know, being around you drives me crazy.",character:"Dean Winchester",options:["Dean Winchester","Sam Winchester","Bobby Singer","Castiel"],media:"Supernatural",mediaType:"show",detail:'S01E01 – "Pilot"'},
+  {quote:"I'll interrogate the cat.",character:"Castiel",options:["Castiel","Dean Winchester","Sam Winchester","Bobby Singer"],media:"Supernatural",mediaType:"show",detail:'S06E10 – "Caged Heat"'},
+  {quote:"On the road again.",character:"Dean Winchester",options:["Dean Winchester","Sam Winchester","Bobby Singer","John Winchester"],media:"Supernatural",mediaType:"show",detail:'S01E01 – "Pilot"'},
+  {quote:"I've got a GED and a give-em-hell attitude.",character:"Dean Winchester",options:["Dean Winchester","Sam Winchester","Bobby Singer","Crowley"],media:"Supernatural",mediaType:"show",detail:'S05E09 – "The Real Ghostbusters"'},
+  {quote:"I'm not Batman.",character:"Sam Winchester",options:["Sam Winchester","Dean Winchester","Castiel","Bobby Singer"],media:"Supernatural",mediaType:"show",detail:'S06E15 – "The French Mistake"'},
+  {quote:"The things that I want, I can't have.",character:"Sam Winchester",options:["Sam Winchester","Dean Winchester","Castiel","Jack Kline"],media:"Supernatural",mediaType:"show",detail:'S01E01 – "Pilot"'},
+  {quote:"My name is Castiel. I'm an angel of the Lord.",character:"Castiel",options:["Castiel","Gabriel","Balthazar","Metatron"],media:"Supernatural",mediaType:"show",detail:'S04E01 – "Lazarus Rising"'},
+  {quote:"You're the most perfect vessel Dean Winchester.",character:"Michael",options:["Michael","Lucifer","Gabriel","Metatron"],media:"Supernatural",mediaType:"show",detail:'S05E13 – "The Song Remains the Same"'},
+
+  // ═══ DISNEY (Movies & TV Shows) ═══
+  {quote:"Hakuna Matata.",character:"Timon",options:["Timon","Pumbaa","Simba","Rafiki"],media:"The Lion King",mediaType:"movie",detail:"The Lion King (1994)"},
+  {quote:"Remember who you are.",character:"Mufasa",options:["Mufasa","Rafiki","Scar","Simba"],media:"The Lion King",mediaType:"movie",detail:"The Lion King (1994)"},
+  {quote:"Long live the king.",character:"Scar",options:["Scar","Mufasa","Rafiki","Zazu"],media:"The Lion King",mediaType:"movie",detail:"The Lion King (1994)"},
+  {quote:"I'm surrounded by idiots.",character:"Scar",options:["Scar","Mufasa","Zazu","Rafiki"],media:"The Lion King",mediaType:"movie",detail:"The Lion King (1994)"},
+  {quote:"The past can hurt. But the way I see it, you can either run from it or learn from it.",character:"Rafiki",options:["Rafiki","Mufasa","Simba","Timon"],media:"The Lion King",mediaType:"movie",detail:"The Lion King (1994)"},
+  {quote:"To infinity and beyond!",character:"Buzz Lightyear",options:["Buzz Lightyear","Woody","Rex","Hamm"],media:"Toy Story",mediaType:"movie",detail:"Toy Story (1995)"},
+  {quote:"There's a snake in my boot.",character:"Woody",options:["Woody","Buzz Lightyear","Rex","Hamm"],media:"Toy Story",mediaType:"movie",detail:"Toy Story (1995)"},
+  {quote:"You are a TOY!",character:"Woody",options:["Woody","Buzz Lightyear","Rex","Jessie"],media:"Toy Story",mediaType:"movie",detail:"Toy Story (1995)"},
+  {quote:"The claaaaw.",character:"Alien / LGM",options:["Alien / LGM","Buzz Lightyear","Woody","Rex"],media:"Toy Story",mediaType:"movie",detail:"Toy Story (1995)"},
+  {quote:"Just keep swimming.",character:"Dory",options:["Dory","Marlin","Nemo","Gill"],media:"Finding Nemo",mediaType:"movie",detail:"Finding Nemo (2003)"},
+  {quote:"Mine! Mine! Mine!",character:"Seagulls",options:["Seagulls","Dory","Marlin","Crush"],media:"Finding Nemo",mediaType:"movie",detail:"Finding Nemo (2003)"},
+  {quote:"Oh, I am a nice shark, not a mindless eating machine.",character:"Bruce",options:["Bruce","Anchor","Chum","Dory"],media:"Finding Nemo",mediaType:"movie",detail:"Finding Nemo (2003)"},
+  {quote:"Just keep swimming, just keep swimming.",character:"Dory",options:["Dory","Nemo","Marlin","Pearl"],media:"Finding Nemo",mediaType:"movie",detail:"Finding Nemo (2003)"},
+  {quote:"Some people are worth melting for.",character:"Olaf",options:["Olaf","Anna","Elsa","Kristoff"],media:"Frozen",mediaType:"movie",detail:"Frozen (2013)"},
+  {quote:"Love is putting someone else's needs before yours.",character:"Olaf",options:["Olaf","Anna","Elsa","Kristoff"],media:"Frozen",mediaType:"movie",detail:"Frozen (2013)"},
+  {quote:"Let it go.",character:"Elsa",options:["Elsa","Anna","Olaf","Kristoff"],media:"Frozen",mediaType:"movie",detail:"Frozen (2013)"},
+  {quote:"I want adventure in the great wide somewhere.",character:"Belle",options:["Belle","Ariel","Cinderella","Rapunzel"],media:"Beauty and the Beast",mediaType:"movie",detail:"Beauty and the Beast (1991)"},
+  {quote:"Part of your world.",character:"Ariel",options:["Ariel","Belle","Rapunzel","Cinderella"],media:"The Little Mermaid",mediaType:"movie",detail:"The Little Mermaid (1989)"},
+  {quote:"Poor unfortunate souls.",character:"Ursula",options:["Ursula","Maleficent","Evil Queen","Cruella De Vil"],media:"The Little Mermaid",mediaType:"movie",detail:"The Little Mermaid (1989)"},
+  {quote:"PHENOMENAL cosmic powers! Itty bitty living space.",character:"Genie",options:["Genie","Jafar","Iago","Sultan"],media:"Aladdin",mediaType:"movie",detail:"Aladdin (1992)"},
+  {quote:"I can show you the world.",character:"Aladdin",options:["Aladdin","Genie","Jafar","Abu"],media:"Aladdin",mediaType:"movie",detail:"Aladdin (1992)"},
+  {quote:"I am not a prize to be won!",character:"Jasmine",options:["Jasmine","Belle","Ariel","Mulan"],media:"Aladdin",mediaType:"movie",detail:"Aladdin (1992)"},
+  {quote:"Mirror, mirror, on the wall, who is the fairest of them all?",character:"Evil Queen",options:["Evil Queen","Maleficent","Ursula","Cruella De Vil"],media:"Snow White and the Seven Dwarfs",mediaType:"movie",detail:"Snow White (1937)"},
+  {quote:"A dream is a wish your heart makes.",character:"Cinderella",options:["Cinderella","Aurora","Belle","Snow White"],media:"Cinderella",mediaType:"movie",detail:"Cinderella (1950)"},
+  {quote:"What can I say except you're welcome?",character:"Maui",options:["Maui","Moana","Tamatoa","Te Ka"],media:"Moana",mediaType:"movie",detail:"Moana (2016)"},
+  {quote:"The ocean chose you for a reason.",character:"Tala",options:["Tala","Moana","Maui","Chief Tui"],media:"Moana",mediaType:"movie",detail:"Moana (2016)"},
+  {quote:"Ohana means family. Family means nobody gets left behind or forgotten.",character:"Lilo",options:["Lilo","Stitch","Nani","Jumba"],media:"Lilo & Stitch",mediaType:"movie",detail:"Lilo & Stitch (2002)"},
+  {quote:"Nobody can be uncheered with a balloon.",character:"Winnie the Pooh",options:["Winnie the Pooh","Piglet","Tigger","Eeyore"],media:"The Many Adventures of Winnie the Pooh",mediaType:"movie",detail:"Winnie the Pooh (1977)"},
+  {quote:"If you don't know where you want to go, then it doesn't matter which path you take.",character:"Cheshire Cat",options:["Cheshire Cat","Mad Hatter","Red Queen","Alice"],media:"Alice in Wonderland",mediaType:"movie",detail:"Alice in Wonderland (1951)"},
+  {quote:"We're all mad here.",character:"Cheshire Cat",options:["Cheshire Cat","Mad Hatter","Red Queen","Tweedledee"],media:"Alice in Wonderland",mediaType:"movie",detail:"Alice in Wonderland (1951)"},
+  {quote:"No capes!",character:"Edna Mode",options:["Edna Mode","Helen Parr","Bob Parr","Violet Parr"],media:"The Incredibles",mediaType:"movie",detail:"The Incredibles (2004)"},
+  {quote:"Where is my super suit?",character:"Bob Parr",options:["Bob Parr","Helen Parr","Edna Mode","Frozone"],media:"The Incredibles",mediaType:"movie",detail:"The Incredibles (2004)"},
+  {quote:"HONEY! WHERE IS MY SUPER SUIT?",character:"Frozone",options:["Frozone","Bob Parr","Helen Parr","Dash Parr"],media:"The Incredibles",mediaType:"movie",detail:"The Incredibles (2004)"},
+  {quote:"I never look back, darling. It distracts from the now.",character:"Edna Mode",options:["Edna Mode","Helen Parr","Bob Parr","Mirage"],media:"The Incredibles",mediaType:"movie",detail:"The Incredibles (2004)"},
+  {quote:"When everyone's super, no one will be.",character:"Syndrome",options:["Syndrome","Edna Mode","Bob Parr","Mirage"],media:"The Incredibles",mediaType:"movie",detail:"The Incredibles (2004)"},
+  {quote:"I'm always angry.",character:"Bruce Banner",options:["Bruce Banner","Tony Stark","Steve Rogers","Clint Barton"],media:"The Incredibles",mediaType:"movie",detail:"The Incredibles (2004)"},
+  {quote:"Oh yes, the past can hurt. But the way I see it, you can either run from it or learn from it.",character:"Rafiki",options:["Rafiki","Mufasa","Simba","Timon"],media:"The Lion King",mediaType:"movie",detail:"The Lion King (1994)"},
+  {quote:"Simba! You have forgotten me.",character:"Mufasa",options:["Mufasa","Rafiki","Scar","Sarabi"],media:"The Lion King",mediaType:"movie",detail:"The Lion King (1994)"},
+  {quote:"Be prepared.",character:"Scar",options:["Scar","Mufasa","Zazu","Rafiki"],media:"The Lion King",mediaType:"movie",detail:"The Lion King (1994)"},
+  {quote:"Buzz, you are a child's plaything!",character:"Woody",options:["Woody","Buzz Lightyear","Rex","Hamm"],media:"Toy Story",mediaType:"movie",detail:"Toy Story (1995)"},
+  {quote:"You've got a friend in me.",character:"Woody",options:["Woody","Buzz Lightyear","Jessie","Rex"],media:"Toy Story",mediaType:"movie",detail:"Toy Story (1995)"},
+  {quote:"To boldly go where no toy has gone before.",character:"Buzz Lightyear",options:["Buzz Lightyear","Woody","Rex","Hamm"],media:"Toy Story",mediaType:"movie",detail:"Toy Story (1995)"},
+  {quote:"She warned him not to be deceived by appearances, for beauty is found within.",character:"The Narrator",options:["The Narrator","Belle","Lumiere","Mrs. Potts"],media:"Beauty and the Beast",mediaType:"movie",detail:"Beauty and the Beast (1991)"},
+  {quote:"Be our guest.",character:"Lumiere",options:["Lumiere","Cogsworth","Mrs. Potts","Chip"],media:"Beauty and the Beast",mediaType:"movie",detail:"Beauty and the Beast (1991)"},
+  {quote:"Tale as old as time.",character:"Mrs. Potts",options:["Mrs. Potts","Lumiere","Cogsworth","Belle"],media:"Beauty and the Beast",mediaType:"movie",detail:"Beauty and the Beast (1991)"},
+  {quote:"No matter how your heart is grieving, if you keep on believing, the dream that you wish will come true.",character:"Cinderella",options:["Cinderella","Aurora","Belle","Rapunzel"],media:"Cinderella",mediaType:"movie",detail:"Cinderella (1950)"},
+  {quote:"I know every inch of this island and I was still surprised.",character:"Moana",options:["Moana","Maui","Te Fiti","Tala"],media:"Moana",mediaType:"movie",detail:"Moana (2016)"},
+  {quote:"I am Moana of Motunui. You will board my boat and restore the heart to Te Fiti.",character:"Moana",options:["Moana","Maui","Tala","Chief Tui"],media:"Moana",mediaType:"movie",detail:"Moana (2016)"},
+  {quote:"I am self-sufficient. I'm a rock.",character:"Maui",options:["Maui","Moana","Tamatoa","Te Ka"],media:"Moana",mediaType:"movie",detail:"Moana (2016)"},
+  {quote:"I see a strong, confident, beautiful young lady. Oh look, you're here too.",character:"Maui",options:["Maui","Moana","Tala","Chief Tui"],media:"Moana",mediaType:"movie",detail:"Moana (2016)"},
+  {quote:"The seaweed is always greener in somebody else's lake.",character:"Sebastian",options:["Sebastian","Ariel","Flounder","Scuttle"],media:"The Little Mermaid",mediaType:"movie",detail:"The Little Mermaid (1989)"},
+  {quote:"I'm not asking you to make her a princess. I'm asking you to make her happy.",character:"King Triton",options:["King Triton","Sebastian","Flounder","Grimsby"],media:"The Little Mermaid",mediaType:"movie",detail:"The Little Mermaid (1989)"},
+  {quote:"All it takes is faith and trust.",character:"Peter Pan",options:["Peter Pan","Tinker Bell","Wendy","Captain Hook"],media:"Peter Pan",mediaType:"movie",detail:"Peter Pan (1953)"},
+  {quote:"To die would be an awfully big adventure.",character:"Peter Pan",options:["Peter Pan","Tinker Bell","Captain Hook","Wendy"],media:"Peter Pan",mediaType:"movie",detail:"Peter Pan (1953)"},
+  {quote:"I'll never grow up!",character:"Peter Pan",options:["Peter Pan","Wendy","Tinker Bell","John"],media:"Peter Pan",mediaType:"movie",detail:"Peter Pan (1953)"},
+  {quote:"Even miracles take a little time.",character:"Fairy Godmother",options:["Fairy Godmother","Cinderella","Flora","Merryweather"],media:"Cinderella",mediaType:"movie",detail:"Cinderella (1950)"},
+  {quote:"A spoonful of sugar helps the medicine go down.",character:"Mary Poppins",options:["Mary Poppins","Bert","Mrs. Banks","Mr. Banks"],media:"Mary Poppins",mediaType:"movie",detail:"Mary Poppins (1964)"},
+  {quote:"Supercalifragilisticexpialidocious!",character:"Mary Poppins",options:["Mary Poppins","Bert","Jane Banks","Michael Banks"],media:"Mary Poppins",mediaType:"movie",detail:"Mary Poppins (1964)"},
+  {quote:"In every job that must be done there is an element of fun.",character:"Mary Poppins",options:["Mary Poppins","Bert","Mrs. Banks","Mr. Banks"],media:"Mary Poppins",mediaType:"movie",detail:"Mary Poppins (1964)"},
+  {quote:"Adventure is out there!",character:"Charles Muntz",options:["Charles Muntz","Carl Fredricksen","Russell","Kevin"],media:"Up",mediaType:"movie",detail:"Up (2009)"},
+  {quote:"Thanks for the adventure. Now go have a new one!",character:"Ellie Fredricksen",options:["Ellie Fredricksen","Carl Fredricksen","Russell","Dug"],media:"Up",mediaType:"movie",detail:"Up (2009)"},
+  {quote:"My name is Dug. I have just met you, and I love you.",character:"Dug",options:["Dug","Carl Fredricksen","Russell","Kevin"],media:"Up",mediaType:"movie",detail:"Up (2009)"},
+  {quote:"SQUIRREL!",character:"Dug",options:["Dug","Carl Fredricksen","Russell","Alpha"],media:"Up",mediaType:"movie",detail:"Up (2009)"},
+  {quote:"I am not fast. But I can do things.",character:"Bing Bong",options:["Bing Bong","Joy","Sadness","Riley"],media:"Inside Out",mediaType:"movie",detail:"Inside Out (2015)"},
+  {quote:"Crying helps me slow down and obsess over the weight of life's problems.",character:"Sadness",options:["Sadness","Joy","Fear","Disgust"],media:"Inside Out",mediaType:"movie",detail:"Inside Out (2015)"},
+  {quote:"Do you ever look at someone and wonder, what is going on inside their head?",character:"Joy",options:["Joy","Sadness","Fear","Disgust"],media:"Inside Out",mediaType:"movie",detail:"Inside Out (2015)"},
+  {quote:"Take her to the moon for me, okay?",character:"Bing Bong",options:["Bing Bong","Joy","Sadness","Riley"],media:"Inside Out",mediaType:"movie",detail:"Inside Out (2015)"},
+  {quote:"I am Baymax, your personal healthcare companion.",character:"Baymax",options:["Baymax","Hiro","Go Go","Wasabi"],media:"Big Hero 6",mediaType:"movie",detail:"Big Hero 6 (2014)"},
+  {quote:"On a scale of one to ten, how would you rate your pain?",character:"Baymax",options:["Baymax","Hiro","Go Go","Fred"],media:"Big Hero 6",mediaType:"movie",detail:"Big Hero 6 (2014)"},
+  {quote:"I am satisfied with my care.",character:"Baymax",options:["Baymax","Hiro","Aunt Cass","Go Go"],media:"Big Hero 6",mediaType:"movie",detail:"Big Hero 6 (2014)"},
+  {quote:"Hairy baby.",character:"Baymax",options:["Baymax","Hiro","Fred","Wasabi"],media:"Big Hero 6",mediaType:"movie",detail:"Big Hero 6 (2014)"},
+  {quote:"Anyone can cook.",character:"Gusteau",options:["Gusteau","Remy","Linguini","Colette"],media:"Ratatouille",mediaType:"movie",detail:"Ratatouille (2007)"},
+  {quote:"If you are what you eat, then I only want to eat the good stuff.",character:"Remy",options:["Remy","Gusteau","Linguini","Colette"],media:"Ratatouille",mediaType:"movie",detail:"Ratatouille (2007)"},
+  {quote:"Not everyone can become a great artist; but a great artist can come from anywhere.",character:"Anton Ego",options:["Anton Ego","Gusteau","Remy","Colette"],media:"Ratatouille",mediaType:"movie",detail:"Ratatouille (2007)"},
+  {quote:"Change is nature, Dad. The part that we can influence.",character:"Remy",options:["Remy","Gusteau","Linguini","Django"],media:"Ratatouille",mediaType:"movie",detail:"Ratatouille (2007)"},
+
+  // ═══ MARVEL CINEMATIC UNIVERSE (Movies Only) ═══
+  {quote:"I am Iron Man.",character:"Tony Stark",options:["Tony Stark","Nick Fury","Steve Rogers","James Rhodes"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"Iron Man (2008)"},
+  {quote:"I know what it's like to lose. To feel so desperately that you're right, yet to fail nonetheless.",character:"Thanos",options:["Thanos","Loki","Ultron","Red Skull"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"Avengers: Infinity War (2018)"},
+  {quote:"I am inevitable.",character:"Thanos",options:["Thanos","Loki","Ultron","Hela"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"Avengers: Endgame (2019)"},
+  {quote:"And I… am… Iron Man.",character:"Tony Stark",options:["Tony Stark","Steve Rogers","Thor","Nick Fury"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"Avengers: Endgame (2019)"},
+  {quote:"I can do this all day.",character:"Steve Rogers",options:["Steve Rogers","Tony Stark","Sam Wilson","Bucky Barnes"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"Captain America: The First Avenger (2011)"},
+  {quote:"On your left.",character:"Steve Rogers",options:["Steve Rogers","Sam Wilson","Bucky Barnes","Tony Stark"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"Captain America: The Winter Soldier (2014)"},
+  {quote:"Wakanda forever.",character:"T'Challa",options:["T'Challa","Shuri","Okoye","M'Baku"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"Black Panther (2018)"},
+  {quote:"I am Groot.",character:"Groot",options:["Groot","Rocket Raccoon","Star-Lord","Gamora"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"Guardians of the Galaxy (2014)"},
+  {quote:"We are Groot.",character:"Groot",options:["Groot","Rocket Raccoon","Gamora","Drax"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"Guardians of the Galaxy (2014)"},
+  {quote:"I'm Mary Poppins, y'all!",character:"Yondu",options:["Yondu","Star-Lord","Rocket Raccoon","Drax"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"Guardians of the Galaxy Vol. 2 (2017)"},
+  {quote:"Nothing goes over my head. My reflexes are too fast; I would catch it.",character:"Drax",options:["Drax","Rocket Raccoon","Star-Lord","Groot"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"Guardians of the Galaxy (2014)"},
+  {quote:"He's a friend from work!",character:"Thor",options:["Thor","Loki","Bruce Banner","Heimdall"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"Thor: Ragnarok (2017)"},
+  {quote:"I'm not a queen or a monster. I'm the Goddess of Death.",character:"Hela",options:["Hela","Loki","Thor","Odin"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"Thor: Ragnarok (2017)"},
+  {quote:"Puny god.",character:"Hulk",options:["Hulk","Thor","Tony Stark","Steve Rogers"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"The Avengers (2012)"},
+  {quote:"We have a Hulk.",character:"Tony Stark",options:["Tony Stark","Steve Rogers","Nick Fury","Loki"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"The Avengers (2012)"},
+  {quote:"I understood that reference.",character:"Steve Rogers",options:["Steve Rogers","Tony Stark","Sam Wilson","Nick Fury"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"The Avengers (2012)"},
+  {quote:"There's only one God, ma'am, and I'm pretty sure He doesn't dress like that.",character:"Steve Rogers",options:["Steve Rogers","Tony Stark","Thor","Clint Barton"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"The Avengers (2012)"},
+  {quote:"I'm with you to the end of the line.",character:"Bucky Barnes",options:["Bucky Barnes","Steve Rogers","Sam Wilson","Tony Stark"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"Captain America: The First Avenger (2011)"},
+  {quote:"Whatever it takes.",character:"Tony Stark",options:["Tony Stark","Steve Rogers","Thor","Natasha Romanoff"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"Avengers: Endgame (2019)"},
+  {quote:"Avengers, assemble.",character:"Steve Rogers",options:["Steve Rogers","Tony Stark","Thor","Nick Fury"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"Avengers: Endgame (2019)"},
+  {quote:"Mr. Stark, I don't feel so good.",character:"Peter Parker",options:["Peter Parker","Tony Stark","Steve Rogers","Wanda Maximoff"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"Avengers: Infinity War (2018)"},
+  {quote:"Perfectly balanced, as all things should be.",character:"Thanos",options:["Thanos","Loki","Ultron","Hela"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"Avengers: Infinity War (2018)"},
+  {quote:"Genius, billionaire, playboy, philanthropist.",character:"Tony Stark",options:["Tony Stark","Bruce Banner","Thor","Steve Rogers"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"The Avengers (2012)"},
+  {quote:"That's my secret, Captain. I'm always angry.",character:"Bruce Banner",options:["Bruce Banner","Tony Stark","Steve Rogers","Clint Barton"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"The Avengers (2012)"},
+  {quote:"Dormammu, I've come to bargain.",character:"Doctor Strange",options:["Doctor Strange","Wong","Ancient One","Dormammu"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"Doctor Strange (2016)"},
+  {quote:"The hardest choices require the strongest wills.",character:"Thanos",options:["Thanos","Loki","Ultron","Red Skull"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"Avengers: Infinity War (2018)"},
+  {quote:"I have nothing to prove to you.",character:"Carol Danvers",options:["Carol Danvers","Natasha Romanoff","Wanda Maximoff","Gamora"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"Captain Marvel (2019)"},
+  {quote:"Higher, further, faster.",character:"Carol Danvers",options:["Carol Danvers","Maria Rambeau","Natasha Romanoff","Hope Van Dyne"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"Captain Marvel (2019)"},
+  {quote:"Part of the journey is the end.",character:"Tony Stark",options:["Tony Stark","Steve Rogers","Thor","Pepper Potts"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"Avengers: Endgame (2019)"},
+  {quote:"In my culture, death is not the end.",character:"T'Challa",options:["T'Challa","Shuri","M'Baku","Okoye"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"Avengers: Infinity War (2018)"},
+  {quote:"I am so sorry. I'm sorry. I don't know what's happening.",character:"Peter Parker",options:["Peter Parker","Tony Stark","Steve Rogers","Wanda Maximoff"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"Avengers: Infinity War (2018)"},
+  {quote:"You were right about one thing. The main road. This is it.",character:"Nick Fury",options:["Nick Fury","Tony Stark","Steve Rogers","Maria Hill"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"The Avengers (2012)"},
+  {quote:"Something just flew over us.",character:"Sam Wilson",options:["Sam Wilson","Steve Rogers","Tony Stark","Nick Fury"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"Captain America: The Winter Soldier (2014)"},
+  {quote:"Whatever it takes.",character:"Natasha Romanoff",options:["Natasha Romanoff","Tony Stark","Steve Rogers","Clint Barton"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"Avengers: Endgame (2019)"},
+  {quote:"I have a plan: attack.",character:"Tony Stark",options:["Tony Stark","Steve Rogers","Thor","Nick Fury"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"The Avengers (2012)"},
+  {quote:"You're a good man, Steve. And I want you to know, whatever happens...",character:"Peggy Carter",options:["Peggy Carter","Nick Fury","Howard Stark","Abraham Erskine"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"Captain America: The First Avenger (2011)"},
+  {quote:"Whatever it takes. No, we don't trade lives, Vision.",character:"Steve Rogers",options:["Steve Rogers","Tony Stark","Thor","Wanda Maximoff"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"Avengers: Infinity War (2018)"},
+  {quote:"No amount of money ever bought a second of time.",character:"Tony Stark",options:["Tony Stark","Howard Stark","Pepper Potts","Nick Fury"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"Avengers: Endgame (2019)"},
+  {quote:"I am Shuri, Princess of Wakanda.",character:"Shuri",options:["Shuri","T'Challa","Okoye","Nakia"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"Black Panther (2018)"},
+  {quote:"You have made me very desperate. What happens now is your own fault.",character:"Erik Killmonger",options:["Erik Killmonger","Ulysses Klaue","M'Baku","W'Kabi"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"Black Panther (2018)"},
+  {quote:"Bury me in the ocean with my ancestors who jumped from ships, because they knew death was better than bondage.",character:"Erik Killmonger",options:["Erik Killmonger","T'Challa","M'Baku","W'Kabi"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"Black Panther (2018)"},
+  {quote:"I thought we were friends.",character:"Thor",options:["Thor","Loki","Odin","Heimdall"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"Thor (2011)"},
+  {quote:"You dare threaten me with your puny little sword?",character:"Thor",options:["Thor","Loki","Odin","Heimdall"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"Thor (2011)"},
+  {quote:"You're all not as smart as me.",character:"Loki",options:["Loki","Thor","Odin","Hela"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"The Avengers (2012)"},
+  {quote:"I have been falling for thirty minutes!",character:"Loki",options:["Loki","Thor","Odin","Hela"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"Thor: The Dark World (2013)"},
+  {quote:"Your saviour is here!",character:"Thor",options:["Thor","Loki","Odin","Heimdall"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"Thor: Ragnarok (2017)"},
+  {quote:"We don't trade lives.",character:"Steve Rogers",options:["Steve Rogers","Tony Stark","Thor","Vision"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"Avengers: Infinity War (2018)"},
+  {quote:"I love you 3000.",character:"Morgan Stark",options:["Morgan Stark","Tony Stark","Pepper Potts","Harley Keener"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"Avengers: Endgame (2019)"},
+  {quote:"Proof that Tony Stark has a heart.",character:"Tony Stark",options:["Tony Stark","Pepper Potts","James Rhodes","Nick Fury"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"Iron Man (2008)"},
+  {quote:"You can take away my house, all my tricks and toys, but one thing you can't take away — I am Iron Man.",character:"Tony Stark",options:["Tony Stark","Steve Rogers","Nick Fury","Pepper Potts"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"Iron Man 3 (2013)"},
+  {quote:"I went forward in time to view alternate futures. To see all the possible outcomes.",character:"Doctor Strange",options:["Doctor Strange","Tony Stark","Wong","Thanos"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"Avengers: Infinity War (2018)"},
+  {quote:"It's not about how much we lost. It's about how much we have left.",character:"Tony Stark",options:["Tony Stark","Steve Rogers","Thor","Bruce Banner"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"Avengers: Endgame (2019)"},
+  {quote:"We're in the endgame now.",character:"Doctor Strange",options:["Doctor Strange","Tony Stark","Wong","Thanos"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"Avengers: Infinity War (2018)"},
+  {quote:"I have nothing to prove to you.",character:"Carol Danvers",options:["Carol Danvers","Natasha Romanoff","Gamora","Okoye"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"Captain Marvel (2019)"},
+  {quote:"Whatever it takes. We owe them that.",character:"Steve Rogers",options:["Steve Rogers","Tony Stark","Thor","Natasha Romanoff"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"Avengers: Endgame (2019)"},
+  {quote:"Fun isn't something one considers when balancing the universe, but this does put a smile on my face.",character:"Thanos",options:["Thanos","Loki","Ultron","Red Skull"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"Avengers: Infinity War (2018)"},
+  {quote:"The measure of a person, of a hero, is how well they succeed at being who they are.",character:"Frigga",options:["Frigga","Thor","Odin","Hela"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"Avengers: Endgame (2019)"},
+  {quote:"I know you're nervous. You have every right to be. But you can do this.",character:"Abraham Erskine",options:["Abraham Erskine","Peggy Carter","Chester Phillips","Howard Stark"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"Captain America: The First Avenger (2011)"},
+  {quote:"Whatever it takes. No more because this time I won't fail.",character:"Clint Barton",options:["Clint Barton","Tony Stark","Steve Rogers","Natasha Romanoff"],media:"Marvel Cinematic Universe",mediaType:"movie-series",detail:"Avengers: Endgame (2019)"},
+];
+
+/* ══════════════════════════════════
+   SCREEN NAV
+   FIX: #landing uses .active class for display:flex
+   All other screens are .screen with display:none / .active = display:block
+══════════════════════════════════ */
+function showScreen(id) {
+  document.getElementById('landing').classList.add('hidden');
+  document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function showLanding() {
+  document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+  document.getElementById('landing').classList.remove('hidden');
+  cleanupListeners();
+}
+
+function showHostSetup() {
+  showScreen('host-setup');
+  renderQList();
+}
+
+function showPlayerJoin() {
+  showScreen('player-join');
+  const p = new URLSearchParams(window.location.search);
+  if (p.get('room')) document.getElementById('player-room-input').value = p.get('room').toUpperCase();
+}
+
+/* ── TOAST ── */
+function toast(msg, dur = 2800) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), dur);
+}
+
+/* ── MEDIA TYPE HANDLER ── */
+function setupMediaTypeHandler() {
+  document.getElementById('m-media-type').addEventListener('change', function() {
+    const r = document.getElementById('m-detail-row');
+    const l = document.getElementById('m-detail-label');
+    const i = document.getElementById('m-detail');
+    const v = this.value;
+    if (v === 'movie') { r.style.display = 'none'; return; }
+    r.style.display = 'block';
+    if (v === 'movie-series') { l.textContent = 'Specific Movie in Series'; i.placeholder = 'e.g. The Fellowship of the Ring (2001)'; }
+    else if (v === 'show') { l.textContent = 'Episode (S×E – Title)'; i.placeholder = 'e.g. S03E09 – "The Rains of Castamere"'; }
+    else if (v === 'game') { l.textContent = 'Chapter / Act'; i.placeholder = 'e.g. Chapter 4'; }
+    else { l.textContent = 'Specific Part'; i.placeholder = ''; }
+  });
+}
+
+/* ══════════════════════════════════
+   QUESTION MODAL
+══════════════════════════════════ */
+function openQuestionModal(idx) {
+  editingIndex = idx;
+  document.getElementById('modal-title').textContent = idx === -1 ? 'Add Quote' : 'Edit Quote';
+  let q = { quote:'', media:'', mediaType:'movie', detail:'', options:['','','',''], correctIndex:0, images:['','','',''] };
+  if (idx >= 0 && hostQuestions[idx]) q = JSON.parse(JSON.stringify(hostQuestions[idx]));
+  document.getElementById('m-quote').value = q.quote;
+  document.getElementById('m-media').value = q.media;
+  document.getElementById('m-media-type').value = q.mediaType;
+  document.getElementById('m-detail').value = q.detail || '';
+  document.getElementById('m-media-type').dispatchEvent(new Event('change'));
+  // Options
+  const og = document.getElementById('modal-options-grid'); og.innerHTML = '';
+  const L = ['A','B','C','D'];
+  q.options.forEach((o, i) => {
+    const s = document.createElement('div');
+    s.className = 'option-slot' + (i === q.correctIndex ? ' correct' : '');
+    s.id = 'opt-slot-' + i;
+    s.innerHTML = `<input type="text" id="opt-${i}" placeholder="Character ${L[i]}" value="${escHtml(o)}"><div class="option-label" onclick="setCorrect(${i})">${L[i]}</div>`;
+    og.appendChild(s);
+  });
+  // Images
+  window._MI = [...(q.images || ['','','',''])];
+  window._MC = q.correctIndex || 0;
+  const ig = document.getElementById('modal-img-grid'); ig.innerHTML = '';
+  q.options.forEach((o, i) => buildImgWidget(ig, i, q.images[i] || '', L[i]));
+  document.getElementById('q-modal').classList.add('open');
+}
+
+function escHtml(s) {
+  return (s || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function buildImgWidget(container, i, src, letter) {
+  const w = document.createElement('div');
+  w.innerHTML = `
+    <div style="font-size:.7rem;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:5px">Option ${letter}</div>
+    <div class="img-src-tabs">
+      <button class="img-src-tab active" id="itab-f-${i}" onclick="setImgTab(${i},'file')">📁 Upload</button>
+      <button class="img-src-tab" id="itab-u-${i}" onclick="setImgTab(${i},'url')">🔗 Paste URL</button>
+    </div>
+    <div class="img-upload-area" id="iarea-${i}" onclick="document.getElementById('ifile-${i}').click()">
+      <img id="iprev-${i}" class="img-preview" ${src ? `src="${src}" style="display:block"` : 'style="display:none"'}>
+      <span id="iicon-${i}" style="font-size:1.3rem;margin-bottom:2px;display:${src?'none':'block'}">📷</span>
+      <span id="ihint-${i}" class="img-upload-hint">${src ? 'Click to change' : 'Upload image'}</span>
+      <input type="file" id="ifile-${i}" accept="image/*" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%" onchange="handleFileUpload(${i},this)">
+    </div>
+    <div class="img-url-wrap" id="iurl-${i}">
+      <input type="text" id="iurlinp-${i}" placeholder="https://example.com/image.jpg">
+      <button class="btn btn-secondary btn-xs" onclick="applyUrl(${i})">Load</button>
+    </div>`;
+  container.appendChild(w);
+}
+
+function setImgTab(i, tab) {
+  document.getElementById('itab-f-'+i).classList.toggle('active', tab==='file');
+  document.getElementById('itab-u-'+i).classList.toggle('active', tab==='url');
+  document.getElementById('iarea-'+i).style.display = tab==='file' ? 'flex' : 'none';
+  document.getElementById('iurl-'+i).classList.toggle('on', tab==='url');
+}
+
+function applyUrl(i) {
+  const url = document.getElementById('iurlinp-'+i).value.trim();
+  if (!url) return toast('Paste an image URL first.');
+  const tester = new Image(); tester.crossOrigin = 'anonymous';
+  tester.onload = () => {
+    try {
+      const c = document.createElement('canvas'), max = 160;
+      let w = tester.naturalWidth, h = tester.naturalHeight;
+      if (w > h) { h = max*h/w; w = max; } else { w = max*w/h; h = max; }
+      c.width = w; c.height = h; c.getContext('2d').drawImage(tester,0,0,w,h);
+      window._MI[i] = c.toDataURL('image/jpeg',.75);
+    } catch(e) { window._MI[i] = url; }
+    setImgPreview(i, window._MI[i]); toast('Image loaded ✓');
+  };
+  tester.onerror = () => { window._MI[i] = url; setImgPreview(i, url); toast('Image linked ✓'); };
+  tester.src = url;
+}
+
+function setImgPreview(i, src) {
+  const p = document.getElementById('iprev-'+i);
+  p.src = src; p.style.display = 'block';
+  document.getElementById('iicon-'+i).style.display = 'none';
+  document.getElementById('ihint-'+i).textContent = 'Click to change';
+}
+
+function handleFileUpload(i, input) {
+  const file = input.files[0]; if (!file) return;
+  const r = new FileReader();
+  r.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement('canvas'), max = 160;
+      let w = img.width, h = img.height;
+      if (w > h) { h = max*h/w; w = max; } else { w = max*w/h; h = max; }
+      c.width = w; c.height = h; c.getContext('2d').drawImage(img,0,0,w,h);
+      window._MI[i] = c.toDataURL('image/jpeg',.75);
+      setImgPreview(i, window._MI[i]);
+    };
+    img.src = e.target.result;
+  };
+  r.readAsDataURL(file);
+}
+
+function setCorrect(i) {
+  window._MC = i;
+  document.querySelectorAll('.option-slot').forEach((s, idx) => s.classList.toggle('correct', idx===i));
+}
+
+function closeQuestionModal() { document.getElementById('q-modal').classList.remove('open'); }
+
+function saveQuestion() {
+  const quote = document.getElementById('m-quote').value.trim();
+  const media = document.getElementById('m-media').value.trim();
+  const mediaType = document.getElementById('m-media-type').value;
+  const detail = document.getElementById('m-detail').value.trim();
+  const options = [0,1,2,3].map(i => document.getElementById('opt-'+i).value.trim());
+  if (!quote) return toast('Please enter a quote.');
+  if (!media) return toast('Please enter the media title.');
+  if (options.filter(Boolean).length < 2) return toast('Please enter at least 2 options.');
+  const q = { quote, media, mediaType, detail, options, correctIndex: window._MC||0, images: window._MI||['','','',''] };
+  if (editingIndex === -1) hostQuestions.push(q); else hostQuestions[editingIndex] = q;
+  closeQuestionModal(); renderQList();
+}
+
+/* ── QUESTIONS LIST ── */
+function renderQList() {
+  const list = document.getElementById('questions-list');
+  const btn = document.getElementById('create-lobby-btn');
+  const lbl = document.getElementById('q-count-label');
+  lbl.textContent = `${hostQuestions.length} question${hostQuestions.length!==1?'s':''} added`;
+  btn.disabled = hostQuestions.length === 0;
+  if (!hostQuestions.length) {
+    list.innerHTML = '<p class="text-muted fs-sm">No questions yet. Pick from the Quote Library or add one manually!</p>';
+    return;
+  }
+  list.innerHTML = '';
+  hostQuestions.forEach((q, i) => {
+    const el = document.createElement('div'); el.className = 'q-item';
+    el.innerHTML = `<div class="q-item-header"><div class="q-item-num">${i+1}</div><div class="q-item-quote">"${q.quote.substring(0,80)}${q.quote.length>80?'…':''}"</div><div class="q-item-actions"><button class="icon-btn" onclick="openQuestionModal(${i})">✏️</button><button class="icon-btn del" onclick="deleteQ(${i})">🗑️</button></div></div><div class="q-item-meta">${srcStr(q)} · ${q.options.filter(Boolean).length} options · Correct: ${['A','B','C','D'][q.correctIndex]}</div>`;
+    list.appendChild(el);
+  });
+}
+
+function deleteQ(i) { hostQuestions.splice(i,1); renderQList(); }
+
+function srcStr(q) {
+  const L = {movie:'Movie','movie-series':'Movie',show:'TV Show',book:'Book',game:'Game',other:'Media'};
+  return `${L[q.mediaType]||'Media'}: ${q.media}${q.detail?' – '+q.detail:''}`;
+}
+
+function srcDisplay(q) {
+  if (q.mediaType==='movie') return `🎬 ${q.media}`;
+  if (q.mediaType==='movie-series') return `🎬 ${q.media}${q.detail?' – '+q.detail:''}`;
+  if (q.mediaType==='show') return `📺 ${q.media}${q.detail?' · '+q.detail:''}`;
+  if (q.mediaType==='game') return `🎮 ${q.media}${q.detail?' – '+q.detail:''}`;
+  if (q.mediaType==='book') return `📖 ${q.media}${q.detail?' – '+q.detail:''}`;
+  return `🎭 ${q.media}${q.detail?' – '+q.detail:''}`;
+}
+
+/* ══════════════════════════════════
+   QUOTE LIBRARY
+══════════════════════════════════ */
+let libSel = new Set(), savedSel = new Set(), savedData = [];
+
+function openLibModal() {
+  libSel.clear();
+  renderLibGrid(PRESETS);
+  document.getElementById('lib-search').value = '';
+  updateSelCount();
+  switchLibTab('browse');
+  document.getElementById('lib-modal').classList.add('open');
+}
+function closeLibModal() { document.getElementById('lib-modal').classList.remove('open'); }
+
+function switchLibTab(tab) {
+  ['browse','bulk','saved'].forEach(t => {
+    document.getElementById('ltab-'+t).classList.toggle('active', t===tab);
+    document.getElementById('lpane-'+t).classList.toggle('hidden', t!==tab);
+  });
+  if (tab === 'saved') loadSaved();
+}
+
+function renderLibGrid(quotes) {
+  const g = document.getElementById('lib-grid'); g.innerHTML = '';
+  if (!quotes.length) { g.innerHTML = '<p class="text-muted fs-sm">No results.</p>'; return; }
+  quotes.forEach(q => {
+    const ri = PRESETS.indexOf(q);
+    const c = document.createElement('div');
+    c.className = 'lib-card' + (libSel.has(ri) ? ' selected' : '');
+    c.onclick = () => {
+      if (libSel.has(ri)) { libSel.delete(ri); c.classList.remove('selected'); }
+      else { libSel.add(ri); c.classList.add('selected'); }
+      updateSelCount();
+    };
+    c.innerHTML = `<div class="lib-card-quote">"${q.quote}"</div><div class="lib-card-meta">${srcStr(q)}</div><div class="lib-card-who">→ ${q.character}</div>`;
+    g.appendChild(c);
+  });
+}
+
+function filterLib() {
+  const s = document.getElementById('lib-search').value.toLowerCase();
+  renderLibGrid(PRESETS.filter(p =>
+    !s ||
+    p.quote.toLowerCase().includes(s) ||
+    p.character.toLowerCase().includes(s) ||
+    p.media.toLowerCase().includes(s) ||
+    (p.detail||'').toLowerCase().includes(s)
+  ));
+}
+
+function selectAllLib() {
+  const s = document.getElementById('lib-search').value.toLowerCase();
+  PRESETS.forEach((p, i) => {
+    if (!s || p.quote.toLowerCase().includes(s) || p.character.toLowerCase().includes(s) || p.media.toLowerCase().includes(s))
+      libSel.add(i);
+  });
+  filterLib(); updateSelCount();
+}
+function clearLibSel() { libSel.clear(); filterLib(); updateSelCount(); }
+function updateSelCount() { document.getElementById('lib-sel-count').textContent = `${libSel.size} selected`; }
+
+function shuffleArray(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function presetToQ(p) {
+  const shuffled = shuffleArray(p.options);
+  const ci = shuffled.indexOf(p.character);
+  return { quote:p.quote, media:p.media, mediaType:p.mediaType, detail:p.detail||'', options:shuffled, correctIndex:ci>=0?ci:0, images:['','','',''] };
+}
+
+function addLibSelected() {
+  if (!libSel.size) return toast('Select at least one quote first.');
+  libSel.forEach(i => hostQuestions.push(presetToQ(PRESETS[i])));
+  toast(`✓ Added ${libSel.size} quote${libSel.size!==1?'s':''}!`);
+  libSel.clear(); closeLibModal(); renderQList();
+}
+
+/* Bulk import */
+function doBulkImport() {
+  const lines = document.getElementById('bulk-ta').value.split('\n').map(l=>l.trim()).filter(Boolean);
+  if (!lines.length) return toast('Nothing to import.');
+  let count = 0;
+  const promises = [];
+  lines.forEach(line => {
+    const p = line.split('|').map(x => x.trim());
+    if (p.length < 6) return;
+    const [quote, correct, b, c, d, media, mediaType='show', detail=''] = p;
+    const options = [correct,b,c,d].filter(Boolean);
+    while (options.length < 4) options.push('');
+    const q = { quote, media, mediaType:mediaType||'show', detail:detail||'', options, correctIndex:0, images:['','','',''] };
+    promises.push(db.ref('library').push(q));
+    hostQuestions.push(q); count++;
+  });
+  Promise.all(promises)
+    .then(() => { toast(`✓ Imported ${count} quote${count!==1?'s':''} & saved to Firebase!`); document.getElementById('bulk-ta').value=''; closeLibModal(); renderQList(); })
+    .catch(e => toast('Error saving: '+e.message));
+}
+
+/* Saved tab */
+async function loadSaved() {
+  const g = document.getElementById('saved-grid');
+  g.innerHTML = '<p class="text-muted fs-sm">Loading…</p>';
+  savedSel.clear();
+  try {
+    const snap = await db.ref('library').once('value');
+    const val = snap.val() || {};
+    savedData = Object.entries(val).map(([k,v]) => ({...v, _key:k}));
+    if (!savedData.length) { g.innerHTML = '<p class="text-muted fs-sm">No saved quotes yet. Use Bulk Import to add quotes.</p>'; return; }
+    g.innerHTML = '';
+    savedData.forEach((q, i) => {
+      const c = document.createElement('div'); c.className = 'lib-card';
+      c.onclick = () => { if(savedSel.has(i)){savedSel.delete(i);c.classList.remove('selected');}else{savedSel.add(i);c.classList.add('selected');} };
+      c.innerHTML = `<div class="lib-card-quote">"${q.quote}"</div><div class="lib-card-meta">${srcStr(q)}</div><div class="lib-card-who">→ ${q.options[q.correctIndex]||'?'}</div>`;
+      g.appendChild(c);
+    });
+  } catch(e) { g.innerHTML = '<p style="color:var(--wrong)">Error: '+e.message+'</p>'; }
+}
+
+function addSavedSelected() {
+  if (!savedSel.size) return toast('Select at least one quote first.');
+  savedSel.forEach(i => {
+    const q = savedData[i];
+    hostQuestions.push({ quote:q.quote, media:q.media, mediaType:q.mediaType, detail:q.detail||'', options:q.options, correctIndex:q.correctIndex, images:q.images||['','','',''] });
+  });
+  toast(`✓ Added ${savedSel.size} from Firebase!`); closeLibModal(); renderQList();
+}
+
+async function deleteSavedSelected() {
+  if (!savedSel.size) return toast('Select quotes to delete first.');
+  if (!confirm(`Delete ${savedSel.size} quote(s) from Firebase permanently?`)) return;
+  await Promise.all([...savedSel].map(i => savedData[i] ? db.ref('library/'+savedData[i]._key).remove() : Promise.resolve()));
+  toast('Deleted!'); loadSaved();
+}
+
+/* ══════════════════════════════════
+   HOST: CREATE LOBBY
+══════════════════════════════════ */
+async function hostCreateLobby() {
+  roomCode = genCode();
+  const gameData = {
+    status:'lobby', round:0, totalRounds:hostQuestions.length,
+    createdAt:Date.now(), questions:hostQuestions
+  };
+  try {
+    await db.ref(`rooms/${roomCode}`).set(gameData);
+    document.getElementById('lobby-room-badge').textContent = `Room: ${roomCode}`;
+    document.getElementById('lobby-code-display').textContent = roomCode;
+
+    // Build join URL — works for hosted pages; for local files shows room code only
+    const isLocal = location.protocol === 'file:';
+    const url = isLocal
+      ? `Join room: ${roomCode}`
+      : `${location.origin}${location.pathname}?room=${roomCode}`;
+    document.getElementById('qr-container').innerHTML = '';
+    // Generate QR — retry once after 200ms to handle timing issues with QRCode lib
+    function makeQR() {
+      if (typeof QRCode === 'undefined') return;
+      try {
+        const qrEl = document.getElementById('qr-container');
+        qrEl.innerHTML = '';
+        new QRCode(qrEl, {
+          text: url,
+          width: 160, height: 160,
+          colorDark: '#ec4899',
+          colorLight: '#fce7f3',
+          correctLevel: QRCode.CorrectLevel.M
+        });
+      } catch(qrErr) { console.warn('QR generation failed:', qrErr); }
+    }
+    if (typeof QRCode !== 'undefined') { makeQR(); }
+    else { setTimeout(makeQR, 500); }
+
+    // Clean up old players listener if any
+    if (_playersListener) db.ref(`rooms/${roomCode}/players`).off('value', _playersListener);
+
+    _playersListener = db.ref(`rooms/${roomCode}/players`).on('value', snap => {
+      const ps = snap.val() || {};
+      const cnt = Object.keys(ps).length;
+      document.getElementById('player-count-badge').textContent = `${cnt} player${cnt!==1?'s':''}`;
+      document.getElementById('start-game-btn').disabled = cnt === 0;
+      const grid = document.getElementById('lobby-players-grid');
+      const noMsg = document.getElementById('no-players-msg');
+      if (!cnt) { grid.innerHTML = ''; noMsg.style.display = 'block'; }
+      else {
+        noMsg.style.display = 'none'; grid.innerHTML = '';
+        Object.values(ps).forEach(p => {
+          const c = document.createElement('div'); c.className = 'player-chip'; c.textContent = p.name; grid.appendChild(c);
+        });
+      }
+    });
+
+    showScreen('host-lobby');
+  } catch(e) { toast('Firebase error: ' + e.message); console.error(e); }
+}
+
+function genCode() {
+  const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  return Array.from({length:4}, () => c[Math.floor(Math.random()*c.length)]).join('');
+}
+
+/* ══════════════════════════════════
+   HOST GAME
+══════════════════════════════════ */
+async function hostStartGame() {
+  currentRound = 0; totalRounds = hostQuestions.length;
+  await db.ref(`rooms/${roomCode}`).update({status:'playing', round:0});
+  hostGoRound(0);
+}
+
+function hostGoRound(ri) {
+  currentRound = ri;
+  const q = hostQuestions[ri];
+
+  // Clear previous round submissions and revealed flag
+  db.ref(`rooms/${roomCode}/submissions/${ri}`).remove();
+  db.ref(`rooms/${roomCode}`).update({round:ri, status:'playing', revealed:false, correctIndex:null});
+
+  document.getElementById('host-round-pill').textContent = `Round ${ri+1} / ${totalRounds}`;
+  document.getElementById('host-room-badge').textContent = `Room: ${roomCode}`;
+  document.getElementById('host-quote-text').textContent = `"${q.quote}"`;
+  document.getElementById('host-quote-source').textContent = srcDisplay(q);
+
+  const g = document.getElementById('host-options-grid'); g.innerHTML = '';
+  const L = ['A','B','C','D'];
+  q.options.forEach((o, i) => {
+    if (!o) return;
+    const el = document.createElement('div');
+    el.className = 'host-option' + (i === q.correctIndex ? ' correct-answer' : '');
+    el.innerHTML = `<div class="option-letter-badge">${L[i]}</div>${q.images[i]?`<img class="option-char-img" src="${q.images[i]}" alt="${escHtml(o)}">`:'<div class="option-char-img" style="display:flex;align-items:center;justify-content:center;font-size:1.2rem">👤</div>'}<div><div class="option-char-name">${o}</div>${i===q.correctIndex?'<span class="correct-badge">✓ Correct</span>':''}</div>`;
+    g.appendChild(el);
+  });
+
+  document.getElementById('host-next-btn').disabled = true;
+  document.getElementById('host-status-dot').classList.remove('all-in');
+  document.getElementById('host-status-text').textContent = 'Waiting for answers…';
+  document.getElementById('host-submit-all').style.display = 'none';
+  document.getElementById('host-progress-bar').style.width = '0%';
+  document.getElementById('host-submit-count').textContent = '0 / ?';
+  document.getElementById('host-submit-list').innerHTML = '';
+
+  showScreen('host-game');
+  hostWatchSubs(ri);
+  hostWatchLB();
+}
+
+function hostWatchSubs(ri) {
+  // Detach old listener
+  if (_subsListener) db.ref(`rooms/${roomCode}/submissions/${ri-1}`).off('value', _subsListener);
+
+  _subsListener = db.ref(`rooms/${roomCode}/submissions/${ri}`).on('value', snap => {
+    const subs = snap.val() || {};
+    const sc = Object.keys(subs).length;
+
+    db.ref(`rooms/${roomCode}/players`).once('value', ps => {
+      const players = ps.val() || {};
+      const pc = Object.keys(players).length;
+      const pct = pc > 0 ? Math.round(sc / pc * 100) : 0;
+
+      document.getElementById('host-submit-count').textContent = `${sc} / ${pc}`;
+      document.getElementById('host-progress-bar').style.width = pct + '%';
+
+      const le = document.getElementById('host-submit-list'); le.innerHTML = '';
+      Object.entries(players).forEach(([pid, pd]) => {
+        const c = document.createElement('div');
+        c.className = 'player-chip' + (subs[pid] !== undefined ? ' submitted' : '');
+        c.textContent = pd.name; le.appendChild(c);
+      });
+
+      if (sc >= pc && pc > 0) {
+        document.getElementById('host-status-dot').classList.add('all-in');
+        document.getElementById('host-status-text').textContent = 'All players answered!';
+        document.getElementById('host-submit-all').style.display = 'block';
+        document.getElementById('host-next-btn').disabled = false;
+        revealAll(ri);
+      }
+    });
+  });
+}
+
+function revealAll(ri) {
+  const q = hostQuestions[ri];
+  db.ref(`rooms/${roomCode}/submissions/${ri}`).once('value', snap => {
+    const subs = snap.val() || {};
+    const updates = {};
+    Object.entries(subs).forEach(([pid, ans]) => {
+      if (Number(ans) === q.correctIndex) {
+        updates[`rooms/${roomCode}/players/${pid}/score`] = firebase.database.ServerValue.increment(100);
+      }
+    });
+    if (Object.keys(updates).length) db.ref().update(updates);
+  });
+  db.ref(`rooms/${roomCode}`).update({revealed:true, correctIndex:q.correctIndex});
+}
+
+function hostWatchLB() {
+  if (_lbListener) db.ref(`rooms/${roomCode}/players`).off('value', _lbListener);
+  _lbListener = db.ref(`rooms/${roomCode}/players`).on('value', snap => {
+    const ps = Object.values(snap.val() || {});
+    ps.sort((a,b) => (b.score||0) - (a.score||0));
+    const el = document.getElementById('host-leaderboard'); el.innerHTML = '';
+    const M = ['🥇','🥈','🥉'];
+    ps.slice(0,8).forEach((p,i) => {
+      el.innerHTML += `<div class="lb-row"><div class="lb-rank ${i===0?'gold':i===1?'silver':i===2?'bronze':''}">${M[i]||(i+1)}</div><div class="lb-name">${p.name}</div><div class="lb-score">${p.score||0}</div></div>`;
+    });
+  });
+}
+
+async function hostNextRound() {
+  const nx = currentRound + 1;
+  if (nx >= totalRounds) {
+    await db.ref(`rooms/${roomCode}`).update({status:'gameover'});
+    hostGameOver();
+  } else {
+    hostGoRound(nx);
+  }
+}
+
+function hostGameOver() {
+  db.ref(`rooms/${roomCode}/players`).once('value', snap => {
+    const ps = Object.values(snap.val() || {});
+    ps.sort((a,b) => (b.score||0)-(a.score||0));
+    renderPodium('host-podium', ps);
+    renderFinalLB('host-final-lb', ps);
+    showScreen('host-gameover');
+  });
+}
+
+function hostNewGame() { hostQuestions = []; roomCode = null; showHostSetup(); renderQList(); }
+
+/* ══════════════════════════════════
+   PLAYER FLOW
+══════════════════════════════════ */
+async function playerJoin() {
+  const code = document.getElementById('player-room-input').value.trim().toUpperCase();
+  const name = document.getElementById('player-name-input').value.trim();
+  if (!code || code.length !== 4) return toast('Please enter a 4-character room code.');
+  if (!name) return toast('Please enter your name.');
+
+  const btn = document.getElementById('join-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>';
+
+  try {
+    const snap = await db.ref(`rooms/${code}`).once('value');
+    if (!snap.exists()) { toast('Room not found.'); btn.disabled=false; btn.textContent='Join Game'; return; }
+    if (snap.val().status === 'gameover') { toast('This game has already ended.'); btn.disabled=false; btn.textContent='Join Game'; return; }
+
+    roomCode = code;
+    playerId = 'p_' + Date.now() + '_' + Math.random().toString(36).substr(2,5);
+    playerName = name;
+    myScore = 0;
+
+    await db.ref(`rooms/${roomCode}/players/${playerId}`).set({name, score:0, joinedAt:Date.now()});
+
+    document.getElementById('player-room-badge').textContent = `Room: ${roomCode}`;
+    document.getElementById('player-lobby-name-msg').textContent = `Welcome, ${name}! Waiting for the host to start…`;
+    document.getElementById('player-score-badge').textContent = '0 pts';
+
+    showScreen('player-lobby');
+    playerWatch();
+  } catch(e) {
+    toast('Error: ' + e.message);
+    console.error(e);
+    btn.disabled = false;
+    btn.textContent = 'Join Game';
+  }
+}
+
+function playerWatch() {
+  if (_roomListener) db.ref(`rooms/${roomCode}`).off('value', _roomListener);
+  _roomListener = db.ref(`rooms/${roomCode}`).on('value', snap => {
+    const r = snap.val(); if (!r) return;
+    if (r.status === 'playing') playerStartRound(r);
+    else if (r.status === 'gameover') playerGameOver();
+  });
+}
+
+function playerStartRound(room) {
+  const ri = room.round;
+  // Only re-render if it's a new round OR we haven't shown the game screen yet
+  const isGameActive = document.getElementById('player-game').classList.contains('active');
+  if (ri === _lastRoundIdx && isGameActive) return;
+  _lastRoundIdx = ri;
+
+  const q = room.questions[ri];
+  currentRound = ri;
+  hasSubmitted = false;
+  playerAnswer = null;
+
+  document.getElementById('player-round-pill').textContent = `Round ${ri+1} / ${room.totalRounds}`;
+  document.getElementById('player-quote-text').textContent = `"${q.quote}"`;
+  document.getElementById('player-quote-source').textContent = srcDisplay(q);
+
+  const list = document.getElementById('player-options-list'); list.innerHTML = '';
+  const L = ['A','B','C','D'];
+  q.options.forEach((o, i) => {
+    if (!o) return;
+    const b = document.createElement('button');
+    b.className = 'answer-btn';
+    b.setAttribute('data-index', i);
+    b.innerHTML = `<div class="answer-btn-letter">${L[i]}</div>${q.images[i]?`<img src="${q.images[i]}" alt="${escHtml(o)}">`:'<div style="width:42px;height:42px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0">👤</div>'}<div class="answer-btn-text">${o}</div>`;
+    b.onclick = () => selectAns(i);
+    list.appendChild(b);
+  });
+
+  document.getElementById('player-submit-btn').disabled = true;
+  document.getElementById('player-submit-btn').textContent = 'Lock In Answer';
+  document.getElementById('player-answering').classList.remove('hidden');
+  document.getElementById('player-waiting-reveal').classList.add('hidden');
+  document.getElementById('player-revealed').classList.add('hidden');
+
+  showScreen('player-game');
+
+  // Watch for reveal
+  if (_revealedListener) db.ref(`rooms/${roomCode}/revealed`).off('value', _revealedListener);
+  _revealedListener = db.ref(`rooms/${roomCode}/revealed`).on('value', snap => {
+    if (snap.val() === true && hasSubmitted) {
+      db.ref(`rooms/${roomCode}/questions/${currentRound}`).once('value', qSnap => playerReveal(qSnap.val()));
+    }
+  });
+}
+
+function selectAns(i) {
+  if (hasSubmitted) return;
+  playerAnswer = i;
+  document.querySelectorAll('.answer-btn').forEach(b => b.classList.toggle('selected', Number(b.getAttribute('data-index'))===i));
+  document.getElementById('player-submit-btn').disabled = false;
+}
+
+async function playerSubmitAnswer() {
+  if (hasSubmitted || playerAnswer === null) return toast('Select an answer first.');
+  hasSubmitted = true;
+  document.getElementById('player-submit-btn').disabled = true;
+  document.getElementById('player-submit-btn').textContent = '✓ Locked In';
+
+  await db.ref(`rooms/${roomCode}/submissions/${currentRound}/${playerId}`).set(playerAnswer);
+
+  document.getElementById('player-answering').classList.add('hidden');
+  document.getElementById('player-waiting-reveal').classList.remove('hidden');
+
+  // Check if already revealed
+  const rv = await db.ref(`rooms/${roomCode}/revealed`).once('value');
+  if (rv.val() === true) {
+    const qSnap = await db.ref(`rooms/${roomCode}/questions/${currentRound}`).once('value');
+    playerReveal(qSnap.val());
+  }
+}
+
+function playerReveal(q) {
+  if (!q) return;
+  const ci = q.correctIndex;
+  const ok = playerAnswer !== null && Number(playerAnswer) === ci;
+  const L = ['A','B','C','D'];
+
+  document.getElementById('player-reveal-quote').textContent = `"${q.quote}"`;
+  document.getElementById('player-reveal-source').textContent = srcDisplay(q);
+
+  const rv = document.getElementById('player-reveal-options'); rv.innerHTML = '';
+  q.options.forEach((o, i) => {
+    if (!o) return;
+    const d = document.createElement('div');
+    let cl = 'answer-btn';
+    if (i === ci && playerAnswer === i) cl += ' revealed-selected-correct';
+    else if (i !== ci && playerAnswer === i) cl += ' revealed-selected-wrong';
+    else if (i === ci) cl += ' revealed-correct';
+    else cl += ' revealed-wrong';
+    d.className = cl; d.style.cursor = 'default';
+    d.innerHTML = `<div class="answer-btn-letter">${L[i]}</div>${q.images[i]?`<img src="${q.images[i]}" alt="${escHtml(o)}">`:'<div style="width:42px;height:42px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0">👤</div>'}<div class="answer-btn-text">${o}${i===ci?' ✓':''}</div>`;
+    rv.appendChild(d);
+  });
+
+  if (ok) myScore += 100;
+  document.getElementById('player-score-badge').textContent = myScore + ' pts';
+
+  const ic = document.getElementById('player-result-icon');
+  const ti = document.getElementById('player-result-title');
+  const pt = document.getElementById('player-result-points');
+  if (playerAnswer === null) { ic.textContent = '😶'; ti.textContent = 'No Answer'; pt.textContent = '+0 points'; }
+  else if (ok) { ic.textContent = '🎉'; ti.textContent = 'Correct!'; pt.textContent = '+100 points'; flashPts('+100'); }
+  else { ic.textContent = '😬'; ti.textContent = `It was ${q.options[ci]}!`; pt.textContent = '+0 points'; }
+
+  document.getElementById('player-answering').classList.add('hidden');
+  document.getElementById('player-waiting-reveal').classList.add('hidden');
+  document.getElementById('player-revealed').classList.remove('hidden');
+}
+
+function flashPts(t) {
+  const e = document.createElement('div');
+  e.className = 'points-flash';
+  e.innerHTML = `${t}<div class="pts">points!</div>`;
+  document.body.appendChild(e);
+  setTimeout(() => e.remove(), 1900);
+}
+
+function playerGameOver() {
+  db.ref(`rooms/${roomCode}/players`).once('value', snap => {
+    const ps = Object.values(snap.val() || {});
+    ps.sort((a,b) => (b.score||0)-(a.score||0));
+    const rank = ps.findIndex(p => p.name === playerName) + 1;
+    document.getElementById('player-gameover-sub').textContent = `You finished #${rank} with ${myScore} points!`;
+    renderPodium('player-podium', ps);
+    renderFinalLB('player-final-lb', ps);
+    showScreen('player-gameover');
+  });
+}
+
+/* ─── PODIUM & LB ─── */
+function renderPodium(id, ps) {
+  const el = document.getElementById(id); el.innerHTML = '';
+  const top = ps.slice(0,3);
+  const ord = top.length >= 3 ? [1,0,2] : top.length === 2 ? [1,0] : [0];
+  const M = ['🥈','🥇','🥉'];
+  ord.forEach(si => {
+    if (!top[si]) return;
+    const p = top[si];
+    const s = document.createElement('div'); s.className = 'podium-spot';
+    const cl = si===0 ? 'p1' : si===1 ? 'p2' : 'p3';
+    s.innerHTML = `<div class="podium-name">${p.name}</div><div class="podium-score">${p.score||0} pts</div><div class="podium-bar ${cl}">${M[si]||''}</div>`;
+    el.appendChild(s);
+  });
+}
+
+function renderFinalLB(id, ps) {
+  const el = document.getElementById(id);
+  const M = ['🥇','🥈','🥉'];
+  el.innerHTML = '<div class="sidebar-title" style="margin-bottom:12px">Final Scores</div>' +
+    ps.map((p,i) => `<div class="lb-row"><div class="lb-rank ${i===0?'gold':i===1?'silver':i===2?'bronze':''}">${M[i]||(i+1)}</div><div class="lb-name">${p.name}</div><div class="lb-score">${p.score||0}</div></div>`).join('');
+}
+
+/* ─── CLEANUP ─── */
+function cleanupListeners() {
+  if (roomCode) {
+    if (_roomListener) db.ref(`rooms/${roomCode}`).off('value', _roomListener);
+    if (_playersListener) db.ref(`rooms/${roomCode}/players`).off('value', _playersListener);
+    if (_subsListener) db.ref(`rooms/${roomCode}/submissions/${currentRound}`).off('value', _subsListener);
+    if (_revealedListener) db.ref(`rooms/${roomCode}/revealed`).off('value', _revealedListener);
+    if (_lbListener) db.ref(`rooms/${roomCode}/players`).off('value', _lbListener);
+  }
+  _roomListener = null; _playersListener = null; _subsListener = null;
+  _revealedListener = null; _lbListener = null;
+  roomCode = null; playerName = null; playerId = null;
+  currentRound = 0; myScore = 0; playerAnswer = null;
+  hasSubmitted = false; _lastRoundIdx = -1;
+}
+
+/* ─── INIT ─── */
+window.addEventListener('DOMContentLoaded', () => {
+  setupMediaTypeHandler();
+
+  window._MI = ['','','',''];
+  window._MC = 0;
+
+  // If joining via QR/link, go straight to player join screen
+  const p = new URLSearchParams(window.location.search);
+  if (p.get('room')) {
+    showPlayerJoin();
+  }
+  // Otherwise landing is already visible by default (no JS needed)
+
+  document.getElementById('q-modal').addEventListener('click', e => {
+    if (e.target === document.getElementById('q-modal')) closeQuestionModal();
+  });
+  document.getElementById('lib-modal').addEventListener('click', e => {
+    if (e.target === document.getElementById('lib-modal')) closeLibModal();
+  });
+});
+</script>
+</body>
+</html>
