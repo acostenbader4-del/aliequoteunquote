@@ -291,16 +291,24 @@ hr{border:none;border-top:1px solid var(--border);margin:20px 0}
       <button class="btn btn-ghost btn-sm" onclick="showLanding()">← Back</button>
     </div>
   </div>
-  <div class="page-content">
-    <div class="section-title">Build Your Game</div>
-    <div class="section-sub">Pick quotes from the <strong style="color:var(--pink-light)">Quote Library</strong> or add your own manually.</div>
-    <div id="questions-list" class="questions-list"></div>
-    <button class="btn btn-secondary mt-16" style="width:100%" onclick="openQuestionModal(-1)">+ Add Quote Manually</button>
-    <hr>
-    <div class="flex-between">
-      <div class="text-muted fs-sm" id="q-count-label">0 questions added</div>
-      <button class="btn btn-primary" onclick="hostCreateLobby()" id="create-lobby-btn" disabled>Create Lobby</button>
+  <div class="page-content" style="max-width:480px">
+    <div class="section-title">Host a Game</div>
+    <div class="section-sub">Quotes are randomly chosen from all available presets and your saved Firebase quotes.</div>
+    <div class="card" style="margin-bottom:20px">
+      <div class="form-group">
+        <label>Number of Rounds</label>
+        <select id="round-count-select">
+          <option value="5">5 rounds</option>
+          <option value="10" selected>10 rounds</option>
+          <option value="15">15 rounds</option>
+          <option value="20">20 rounds</option>
+          <option value="30">30 rounds</option>
+          <option value="0">Play all available quotes</option>
+        </select>
+      </div>
+      <p class="text-muted fs-sm" id="quote-pool-info" style="margin-top:4px">Loading quote pool…</p>
     </div>
+    <button class="btn btn-primary" style="width:100%" onclick="hostCreateLobby()" id="create-lobby-btn">Create Lobby</button>
   </div>
 </div>
 
@@ -359,7 +367,10 @@ hr{border:none;border-top:1px solid var(--border);margin:20px 0}
             <div class="status-dot" id="host-status-dot"></div>
             <span class="fs-sm text-muted" id="host-status-text">Waiting for answers…</span>
           </div>
-          <button class="btn btn-primary" id="host-next-btn" onclick="hostNextRound()" disabled>Next Round →</button>
+          <div class="flex" style="gap:8px">
+            <button class="btn btn-ghost btn-sm" id="host-end-btn" onclick="hostEndGameEarly()" style="color:var(--wrong);border:1px solid rgba(248,113,113,.3)">End Game</button>
+            <button class="btn btn-primary" id="host-next-btn" onclick="hostNextRound()" disabled>Next Round →</button>
+          </div>
         </div>
       </div>
       <div>
@@ -990,9 +1001,20 @@ function showLanding() {
   cleanupListeners();
 }
 
-function showHostSetup() {
+async function showHostSetup() {
   showScreen('host-setup');
-  renderQList();
+  // Count available quotes and show info
+  const infoEl = document.getElementById('quote-pool-info');
+  let total = PRESETS.length;
+  try {
+    const snap = await db.ref('library').once('value');
+    const saved = snap.val() || {};
+    const savedCount = Object.keys(saved).length;
+    total += savedCount;
+    infoEl.textContent = `${PRESETS.length} built-in quotes + ${savedCount} saved in Firebase = ${total} total available`;
+  } catch(e) {
+    infoEl.textContent = `${PRESETS.length} built-in quotes available (Firebase not connected)`;
+  }
 }
 
 function showPlayerJoin() {
@@ -1333,6 +1355,34 @@ async function deleteSavedSelected() {
 ══════════════════════════════════ */
 async function hostCreateLobby() {
   roomCode = genCode();
+  const btn = document.getElementById('create-lobby-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Loading quotes…';
+
+  // Build full quote pool: all presets + all Firebase saved quotes
+  let pool = PRESETS.map(p => presetToQ(p));
+  try {
+    const snap = await db.ref('library').once('value');
+    const saved = snap.val() || {};
+    Object.values(saved).forEach(q => pool.push({
+      quote:q.quote, media:q.media, mediaType:q.mediaType,
+      detail:q.detail||'', options:q.options,
+      correctIndex:q.correctIndex, images:q.images||['','','','']
+    }));
+  } catch(e) { /* Firebase unavailable — use presets only */ }
+
+  // Shuffle the full pool
+  pool = shuffleArray(pool);
+
+  // Determine round count
+  const sel = document.getElementById('round-count-select');
+  const wantedRounds = parseInt(sel.value) || 0;
+  const totalR = wantedRounds > 0 ? Math.min(wantedRounds, pool.length) : pool.length;
+  hostQuestions = pool.slice(0, totalR);
+
+  btn.disabled = false;
+  btn.textContent = 'Create Lobby';
+
   const gameData = {
     status:'lobby', round:0, totalRounds:hostQuestions.length,
     createdAt:Date.now(), questions:hostQuestions
@@ -1398,7 +1448,8 @@ function genCode() {
    HOST GAME
 ══════════════════════════════════ */
 async function hostStartGame() {
-  currentRound = 0; totalRounds = hostQuestions.length;
+  currentRound = 0;
+  totalRounds = hostQuestions.length;
   await db.ref(`rooms/${roomCode}`).update({status:'playing', round:0});
   hostGoRound(0);
 }
@@ -1501,6 +1552,12 @@ function hostWatchLB() {
   });
 }
 
+async function hostEndGameEarly() {
+  if (!confirm('End the game now and go to results?')) return;
+  await db.ref(`rooms/${roomCode}`).update({status:'gameover'});
+  hostGameOver();
+}
+
 async function hostNextRound() {
   const nx = currentRound + 1;
   if (nx >= totalRounds) {
@@ -1521,7 +1578,7 @@ function hostGameOver() {
   });
 }
 
-function hostNewGame() { hostQuestions = []; roomCode = null; showHostSetup(); renderQList(); }
+function hostNewGame() { hostQuestions = []; roomCode = null; showHostSetup(); }
 
 /* ══════════════════════════════════
    PLAYER FLOW
